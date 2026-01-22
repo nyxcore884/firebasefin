@@ -1,0 +1,4 @@
+functions-framework
+google-cloud-pubsub
+google-cloud-aiplatform
+google-cloud-firestore

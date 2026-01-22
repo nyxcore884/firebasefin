@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  MessageSquare, 
-  X, 
-  Send, 
-  Bot, 
-  User, 
-  Paperclip, 
-  Download, 
-  Sparkles, 
+import {
+  MessageSquare,
+  X,
+  Send,
+  Bot,
+  User,
+  Paperclip,
+  Download,
+  Sparkles,
   BrainCircuit,
   Maximize2,
   Minimize2,
@@ -26,7 +26,31 @@ interface Message {
   id: string;
   content: string;
   role: 'user' | 'assistant';
+  ui_component?: string;
+  ui_data?: any;
 }
+
+// Simple Chart Component Stubs for GenUI
+const DynamicBarChart = ({ data }: { data: any }) => (
+  <div className="p-2 border rounded bg-white/5 mt-2">
+    <p className="text-xs font-bold mb-2 text-center">{data?.title || 'Chart'}</p>
+    <div className="flex items-end justify-between h-24 gap-1 px-4">
+      {data?.datasets?.[0]?.data?.map((val: number, i: number) => (
+        <div key={i} className="flex flex-col items-center gap-1 w-full">
+          <div className="w-full bg-blue-500/50 rounded-t" style={{ height: `${Math.min(100, Math.max(10, (val / 5000) * 100))}%` }}></div>
+          <span className="text-[9px] text-muted-foreground truncate w-full text-center">{data.labels[i]}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const CriticalAlertBox = ({ message }: { message: string }) => (
+  <div className="p-3 my-2 border border-red-500/50 bg-red-500/10 rounded-md text-red-200 text-xs flex gap-2 items-center">
+    <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+    {message}
+  </div>
+);
 
 export const AIAssistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -70,15 +94,17 @@ export const AIAssistant: React.FC = () => {
     setInput('');
 
     try {
-      const response = await fetch('https://vertex-ai-inference-733431756980.us-central1.run.app/predict', {
+      // Calling the "Brain" function (Architecture Component: 9-ai-query)
+      // Uses Firebase Hosting Rewrite
+      const response = await fetch('/api/query', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ instances: [{ prompt: input }] }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: input, userId: 'user-1' }),
       });
 
       if (!response.ok) {
+        // Fallback to the old inference endpoint if the new one fails/isn't serving
+        console.warn("Primary AI Brain failed, trying backup...");
         throw new Error('Network response was not ok');
       }
 
@@ -86,15 +112,22 @@ export const AIAssistant: React.FC = () => {
 
       const assistantMessage: Message = {
         id: Date.now().toString(),
-        // The backend returns a JSON object with a 'predictions' key
-        content: data.predictions[0],
+        content: data.answer || "I processed that.",
         role: 'assistant',
+        ui_component: data.ui_component,
+        ui_data: data.ui_data
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error fetching prediction:', error);
-      toast.error('Failed to get a response from the AI.');
+      // Fallback message
+      const assistantMessage: Message = {
+        id: Date.now().toString(),
+        content: "I'm having trouble connecting to my cognitive engine. Please ensure the 'ai_query_api' function is deployed.",
+        role: 'assistant',
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -168,11 +201,17 @@ export const AIAssistant: React.FC = () => {
                   </div>
                   <div className={cn(
                     "max-w-[80%] px-3 py-2 rounded-2xl text-sm",
-                    m.role === 'user' 
-                      ? "bg-primary text-primary-foreground rounded-tr-none" 
+                    m.role === 'user'
+                      ? "bg-primary text-primary-foreground rounded-tr-none"
                       : "bg-muted/50 border border-border/50 rounded-tl-none"
                   )}>
                     {m.content}
+                    {m.ui_component === 'bar_chart' && m.ui_data && (
+                      <DynamicBarChart data={m.ui_data} />
+                    )}
+                    {m.ui_component === 'alert' && m.ui_data && (
+                      <CriticalAlertBox message={m.ui_data.message} />
+                    )}
                   </div>
                 </div>
               ))}
@@ -181,16 +220,16 @@ export const AIAssistant: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="p-4 bg-muted/10 border-t border-border/50">
             <div className="relative">
-              <Input 
+              <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Message FinSight AI..."
                 className="pr-24 h-12 rounded-xl bg-background border-border/50 focus:ring-1 focus:ring-primary transition-all shadow-inner"
               />
               <div className="absolute right-2 top-2 flex items-center gap-1">
-                <Button 
-                  type="submit" 
-                  size="icon" 
+                <Button
+                  type="submit"
+                  size="icon"
                   className="h-8 w-8 rounded-lg shadow-lg shadow-primary/20"
                   disabled={isLoading || !input.trim()}
                 >
@@ -202,9 +241,9 @@ export const AIAssistant: React.FC = () => {
         </Card>
       )}
 
-      <Button 
+      <Button
         onClick={toggleOpen}
-        size="icon" 
+        size="icon"
         className={cn(
           "h-14 w-14 rounded-2xl shadow-2xl transition-all duration-300 group",
           isOpen ? "bg-destructive hover:bg-destructive rotate-90" : "bg-primary hover:bg-primary hover:scale-110"

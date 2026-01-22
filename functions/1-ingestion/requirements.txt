@@ -1,6 +1,6 @@
-functions-framework
 google-cloud-storage
 google-cloud-pubsub
+google-cloud-aiplatform
 pandas
 
 firebase-functions

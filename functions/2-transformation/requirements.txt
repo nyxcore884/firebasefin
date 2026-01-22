@@ -2,6 +2,7 @@ functions-framework
 google-cloud-firestore
 google-cloud-storage
 pandas
-
+sqlalchemy
+pg8000
 firebase-functions
 firebase-admin

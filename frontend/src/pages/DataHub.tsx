@@ -17,7 +17,7 @@ import AITrainingControls from '@/components/data-hub/AITrainingControls';
 
 import { FinancialHierarchy } from '@/components/data-hub/FinancialHierarchy';
 import { PaymentTree } from '@/components/data-hub/PaymentTree';
-import { MOCK_COMPANY_STRUCTURE, PAYMENT_TREE } from '@/data/mock-engine';
+// Mock data removed
 import { PrognosisDashboard } from '@/components/prognosis/PrognosisDashboard';
 import StorageManager from '@/components/data-hub/StorageManager';
 import FinancialInsightsDashboard from '@/components/data-hub/FinancialInsightsDashboard';
@@ -98,11 +98,11 @@ const DataHub = () => {
         </TabsContent>
 
         <TabsContent value="hierarchy" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <FinancialHierarchy data={MOCK_COMPANY_STRUCTURE} />
+          <FinancialHierarchy data={[]} />
         </TabsContent>
 
         <TabsContent value="payments" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <PaymentTree data={PAYMENT_TREE} />
+          <PaymentTree data={[]} />
         </TabsContent>
 
         <TabsContent value="mapping" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">

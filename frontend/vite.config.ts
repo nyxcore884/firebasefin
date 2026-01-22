@@ -12,16 +12,15 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/functions/engine': {
-        target: 'http://localhost:5001/studio-9381016045-4d625/us-central1',
+      '/api': {
+        target: 'http://localhost:5002',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/functions\/engine/, '/process_transaction'),
       },
-      '/functions/ai': {
-        target: 'http://localhost:5001/studio-9381016045-4d625/us-central1',
+      // Keep these for legacy if needed, but we prefer /api
+      '/functions': {
+        target: 'http://localhost:5001',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/functions\/ai/, '/ai_query_api'),
-      },
+      }
     },
   },
 })

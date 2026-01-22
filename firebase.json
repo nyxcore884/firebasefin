@@ -108,6 +108,16 @@
         ".git",
         "__pycache__"
       ]
+    },
+    {
+      "source": "functions/11-governance",
+      "codebase": "governance",
+      "runtime": "python311",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "__pycache__"
+      ]
     }
   ],
   "hosting": {
@@ -156,7 +166,7 @@
       {
         "source": "/api/report",
         "run": {
-          "serviceId": "download_report",
+          "serviceId": "generate_executive_report",
           "region": "us-central1"
         }
       },

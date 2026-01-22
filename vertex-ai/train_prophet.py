@@ -34,14 +34,15 @@ def load_training_data(project_id: str, dataset: str, table: str):
     
     query = f"""
         SELECT 
-            transactionDate as ds,
-            itemCode,
+            transaction_date as ds,
+            item_code as itemCode,
             SUM(amount) as y
-        FROM `{project_id}.{dataset}.{table}`
-        WHERE transactionDate IS NOT NULL
-          AND amount IS NOT NULL
-        GROUP BY transactionDate, itemCode
-        ORDER BY itemCode, transactionDate
+        FROM EXTERNAL_QUERY(
+            '{project_id}.us-central1.external_postgres',
+            'SELECT transaction_date, item_code, amount FROM transactions'
+        )
+        GROUP BY 1, 2
+        ORDER BY 2, 1
     """
     
     print(f"Loading training data from {project_id}.{dataset}.{table}...")

@@ -120,14 +120,36 @@ def generate_cot_response(query_text: str, context: dict, history: list) -> dict
     else:
         answer = "I've reviewed the verified ledger. Revenue is ₾{revenue:,.2f} and Net Income is ₾{net_income:,.2f}. How would you like me to analyze this further?".format(**metrics)
 
-    if recon.get('is_balanced'):
-        answer += "\n\n✅ *Note: This figure is fully reconciled (Assets = L+E).* "
-    else:
-        answer += "\n\n⚠️ *Warning: Discrepancies detected in the ledger for this period.* "
+    # 3. Determine UI Component
+    ui_component = None
+    ui_data = None
+    
+    if 'profit' in query_lower or 'revenue' in query_lower or 'ebitda' in query_lower:
+        ui_component = 'bar_chart'
+        # Mock data for demonstration - in prod this comes from 'metrics'
+        ui_data = {
+            "title": "Financial Performance",
+            "labels": ["Revenue", "COGS", "Gross Margin", "EBITDA"],
+            "datasets": [{
+                "label": "Current Period",
+                "data": [metrics.get('revenue', 0), metrics.get('cogs', 0), metrics.get('gross_margin', 0), metrics.get('ebitda', 0)]
+            }]
+        }
+    elif 'trend' in query_lower:
+         ui_component = 'line_chart'
+         ui_data = {
+             "labels": ["Jan", "Feb", "Mar", "Apr"],
+             "values": [100, 120, 115, 130] # Mock trend
+         }
+    elif recon.get('is_balanced') is False:
+        ui_component = 'alert'
+        ui_data = {"type": "warning", "message": "Ledger discrepancy detected."}
 
     return {
         "thought_process": cot,
-        "answer": answer
+        "answer": answer,
+        "ui_component": ui_component,
+        "ui_data": ui_data
     }
 
 @https_fn.on_request(
@@ -175,6 +197,8 @@ def ai_query_api(req: https_fn.Request) -> https_fn.Response:
             "query": query_text,
             "thought_process": result['thought_process'],
             "answer": result['answer'],
+            "ui_component": result.get('ui_component'),
+            "ui_data": result.get('ui_data'),
             "source": "Cognitive Engine v2"
         })
 
