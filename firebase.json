@@ -1,0 +1,210 @@
+{
+  "functions": [
+    {
+      "source": "functions/1-ingestion",
+      "codebase": "ingestion",
+      "runtime": "python311",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ],
+      "trigger": {
+        "bucket": "raw-financial-data-ingestion"
+      }
+    },
+    {
+      "source": "functions/2-transformation",
+      "codebase": "transformation",
+      "runtime": "python311",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ],
+      "trigger": {
+        "topic": "files-to-process"
+      }
+    },
+    {
+      "source": "functions/3-analysis",
+      "codebase": "analysis",
+      "runtime": "python311",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    },
+    {
+      "source": "functions/4-doc-analysis",
+      "codebase": "doc-analysis",
+      "runtime": "python311",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log"
+      ]
+    },
+    {
+      "source": "functions/5-financial-engine",
+      "codebase": "financial-engine",
+      "runtime": "python311",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "__pycache__"
+      ]
+    },
+    {
+      "source": "functions/6-prognosis-engine",
+      "codebase": "prognosis-engine",
+      "runtime": "python311",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "__pycache__"
+      ]
+    },
+    {
+      "source": "functions/7-dataset-registry",
+      "codebase": "dataset-registry",
+      "runtime": "python311",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "__pycache__"
+      ]
+    },
+    {
+      "source": "functions/8-data-ingestion",
+      "codebase": "data-ingestion-v2",
+      "runtime": "python311",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "__pycache__"
+      ]
+    },
+    {
+      "source": "functions/9-ai-query",
+      "codebase": "ai-query",
+      "runtime": "python311",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "__pycache__"
+      ]
+    },
+    {
+      "source": "functions/10-reporting",
+      "codebase": "reporting",
+      "runtime": "python311",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "__pycache__"
+      ]
+    }
+  ],
+  "hosting": {
+    "public": "frontend/dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/analyze_document",
+        "run": {
+          "serviceId": "doc-analysis",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "financial-analysis-engine",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/registry/**",
+        "run": {
+          "serviceId": "registry_api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/ingest",
+        "run": {
+          "serviceId": "ingest_data",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/query",
+        "run": {
+          "serviceId": "ai_query_api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/report",
+        "run": {
+          "serviceId": "download_report",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "frameworks": {
+    "firebase-frameworks": {
+      "hosting": {
+        "source": "frontend",
+        "web_framework": "react"
+      }
+    }
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "functions": {
+      "port": 5001
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "hosting": {
+      "port": 5002
+    },
+    "pubsub": {
+      "port": 8085
+    },
+    "storage": {
+      "port": 9199
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "hub": {
+      "port": 4400
+    }
+  }
+}

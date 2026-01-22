@@ -1,0 +1,18 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install --no-cache-dir \
+    prophet==1.1.5 \
+    pandas==2.0.3 \
+    google-cloud-storage==2.10.0 \
+    flask==3.0.0 \
+    gunicorn==21.2.0
+
+# Copy serving script
+COPY serve.py .
+
+EXPOSE 8080
+
+CMD exec gunicorn --bind :8080 --workers 2 --timeout 300 serve:app

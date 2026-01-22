@@ -1,0 +1,7 @@
+functions-framework
+google-cloud-storage
+textblob
+google-cloud-aiplatform
+
+firebase-functions
+firebase-admin

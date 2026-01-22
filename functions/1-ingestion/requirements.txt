@@ -1,0 +1,7 @@
+functions-framework
+google-cloud-storage
+google-cloud-pubsub
+pandas
+
+firebase-functions
+firebase-admin

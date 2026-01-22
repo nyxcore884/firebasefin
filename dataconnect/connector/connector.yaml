@@ -1,0 +1,7 @@
+specVersion: 'v1'
+serviceId: 'financewise'
+connectorId: 'financial-connector'
+generate:
+  javascriptSdk:
+    outputDir: "../sdk"
+    package: "@firebase/data-connect"

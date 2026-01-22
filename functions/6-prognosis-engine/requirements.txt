@@ -1,0 +1,12 @@
+functions-framework==3.*
+flask==3.*
+pandas
+numpy
+tensorflow
+statsmodels
+google-cloud-firestore
+prophet
+scikit-learn
+
+firebase-functions
+firebase-admin

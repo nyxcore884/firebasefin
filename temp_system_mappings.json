@@ -1,0 +1,10 @@
+
+{
+  "keyword_to_code_map": {
+    "rules": [
+      {"keyword": "diesel", "targetCode": "5.2.1", "targetCategory": "Fuel"},
+      {"keyword": "odoo", "targetCode": "5.11.7", "targetCategory": "Billing Cost"},
+      {"keyword": "pipe", "targetCode": "5.3", "targetCategory": "Maintenance"}
+    ]
+  }
+}
