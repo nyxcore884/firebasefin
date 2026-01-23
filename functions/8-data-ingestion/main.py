@@ -1,7 +1,9 @@
 import os
 import json
 import logging
-# import pandas as pd # Lazy loaded
+import csv
+import io
+import datetime
 from firebase_functions import https_fn, options
 from werkzeug.utils import secure_filename
 import firebase_admin
@@ -11,7 +13,7 @@ from firebase_admin import credentials, initialize_app
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize Firebase Admin (Required for Storage/Firestore access if not using google.cloud lib directly)
+# Initialize Firebase Admin
 if not firebase_admin._apps:
     initialize_app()
 
@@ -57,247 +59,154 @@ def log_audit_event(user_id: str, action: str, details: dict):
     except Exception as e:
         logger.error(f"Audit Log Error: {e}")
 
-def validate_data(df) -> bool:
-    import pandas as pd
-    # 1. Flexible Column Mapping
-    # Standardize headers to lower case
-    df.columns = [c.lower().strip().replace(' ', '_') for c in df.columns]
+def validate_data(rows) -> bool:
+    if not rows:
+        return True
     
-    # Required concepts, not exact names. We will map synonyms.
-    # We essentially need: Date, Amount. Others are optional/can be defaulted.
+    # Normalize keys of the first row to check for existence
+    first_row_keys = [k.lower().strip().replace(' ', '_') for k in rows[0].keys()]
     
-    has_date = any(col in df.columns for col in ['date', 'doc_date', 'document_date', 'posting_date', 'day'])
-    has_amount = any(col in df.columns for col in ['amount', 'value', 'amount_gel', 'dmbtr', 'balance', 'turnover'])
+    has_date = any(col in first_row_keys for col in ['date', 'doc_date', 'document_date', 'posting_date', 'day'])
+    has_amount = any(col in first_row_keys for col in ['amount', 'value', 'amount_gel', 'dmbtr', 'balance', 'turnover'])
     
     if not has_date or not has_amount:
-         logger.warning(f"Validation Soft-Fail: Missing crucial date/amount columns. Found: {list(df.columns)}")
-         # We will proceed but mark as 'RAW_UNSTRUCTURED' in transformation if needed.
-         # For now, return False to enforce at least rudimentary quality.
-         # Actually, for "Actual PY", it might be missing standard headers if it starts at row 5.
-         # But we can't solve row-skipping here easily without seeing the file.
-         # Let's Return TRUE but log warning to allow the pipeline to proceed to Transformation where we can apply defaults.
+         logger.warning(f"Validation Soft-Fail: Missing crucial date/amount columns. Found: {list(first_row_keys)}")
          return True 
-
-    return True
-    
-    if not all(col in df_cols for col in required_columns):
-        if not is_trial_balance: # Allow TB uploads to have different schema
-            logger.warning(f"Validation Failed: Missing columns. Found {df_cols}, Expected {required_columns}")
-            return False
-
-    # 2. Strict Data Quality Checks (Phase 18)
-    try:
-        # Date Format Validation (YYYY-MM-DD or standard formats)
-        if 'date' in df_cols:
-             # Coerce errors to NaT, then check for NaT
-             temp_dates = pd.to_datetime(df['date'], errors='coerce')
-             if temp_dates.isna().any():
-                 logger.warning("Validation Failed: Invalid Date Formats detected.")
-                 return False
-
-        # Range Validation
-        if 'amount' in df_cols:
-             # Check for realistic ranges (e.g., < 1 Billion for a single txn, mostly positive unless adjustment)
-             # keeping it simple: just warn on huge numbers, fail on NaN
-             if pd.to_numeric(df['amount'], errors='coerce').isna().any():
-                  logger.warning("Validation Failed: Non-numeric amounts detected.")
-                  return False
-             
-             if (df['amount'].abs() > 1000000000).any():
-                  logger.warning("Validation Warning: Extremely large values (> 1B) detected.")
-                  # We don't fail, just warn, as it might be a consolidation entry
-        
-    except Exception as e:
-        logger.error(f"Strict Validation Error: {e}")
-        return False
-
-    # 3. Balance Sheet Logic (if applicable)
-    if 'category' in df_cols and 'amount' in df_cols:
-        try:
-            check_df = df.copy()
-            check_df.columns = [c.lower() for c in check_df.columns]
-            
-            assets = check_df[check_df['category'].str.lower() == 'assets']['amount'].sum()
-            liabilities = check_df[check_df['category'].str.lower() == 'liabilities']['amount'].sum()
-            equity = check_df[check_df['category'].str.lower() == 'equity']['amount'].sum()
-            
-            # Allow small floating point variance
-            if abs(assets - (liabilities + equity)) > 1.0:
-                 logger.warning(f"Balance Sheet Imbalance: A={assets}, L+E={liabilities+equity}")
-        except Exception as e:
-            logger.warning(f"Validation Logic Warning: {e}")
-
     return True
 
-
-def map_financial_data(df):
-    """Maps raw inputs to SOCAR Standard Hierarchy using rules from Firestore"""
-    import pandas as pd
-    logger.info("Starting Dynamic Mapping...")
-    
-    # 1. Fetch Mapping Rules from Firestore
+def get_mapping_rules():
+    """Fetch Mapping Rules from Firestore"""
+    mapping_dict = {}
     try:
         db_client = get_db()
         rules_ref = db_client.collection('mapping_rules')
         rules_docs = rules_ref.stream()
         
-        mapping_dict = {}
         for doc in rules_docs:
             data = doc.to_dict()
-            mapping_dict[data['rawField'].lower()] = data['targetField']
-            
+            if 'rawField' in data and 'targetField' in data:
+                mapping_dict[data['rawField'].lower()] = data['targetField']
+                
         logger.info(f"Loaded {len(mapping_dict)} mapping rules from Firestore.")
     except Exception as e:
         logger.error(f"Error loading mapping rules: {e}")
-        mapping_dict = {}
+    return mapping_dict
 
-    # 2. Apply Dynamic Column Mapping
-    # If a column header matches a 'rawField', we can rename it or create a standardized col
-    # For SOCAR, we want to map into: company_id, category, sub_category, amount_gel, date
+def map_row(row, mapping_dict):
+    """Refactored logic for processing a single row dict"""
+    # Normalize keys first
+    norm_row = {k.lower().strip().replace(' ', '_'): v for k, v in row.items()}
     
-    # Simple strategy: If rules exist, try to find matching columns in CSV
-    current_cols = [c.lower() for c in df.columns]
+    # 1. Company Mapping
+    company_id = 'SGG-001' # Default
+    entity_vals = []
+    for col in ['entity', 'company', 'organization', 'branch', 'sub']:
+        if col in norm_row:
+            entity_vals.append(str(norm_row[col]))
     
-    # Pre-map Company
-    def map_company(row):
-        # Check standard synonyms
-        entity_val = ""
-        possible_cols = ['entity', 'company', 'organization', 'branch', 'sub']
-        for col in possible_cols:
-            if col in df.columns:
-                entity_val = str(row.get(col, '')).strip()
-                break
-        
-        if any(x in entity_val for x in ['Georgia', 'SGG', 'SGG-001']): return 'SGG-001'
-        if any(x in entity_val for x in ['Export', 'SOG', 'SGG-002']): return 'SGG-002'
-        if any(x in entity_val for x in ['Telav', 'SGG-003']): return 'SGG-003'
-        return 'SGG-001'
+    entity_str = " ".join(entity_vals)
+    if any(x in entity_str for x in ['Export', 'SOG', 'SGG-002']): company_id = 'SGG-002'
+    elif any(x in entity_str for x in ['Telav', 'SGG-003']): company_id = 'SGG-003'
     
-    df['company_id'] = df.apply(map_company, axis=1)
-
-    # 3. Dynamic GL & Category Mapping
-    def map_category_dynamic(row):
-        # First, try to find a column that corresponds to a mapping rule
-        # We look for values in the row that match rawFields if the row is small, 
-        # or we look for specific columns.
-        
-        gl = str(row.get('gl_account', row.get('gl', ''))).strip()
-        desc = str(row.get('description', row.get('memo', ''))).lower()
-        
-        # Priority 1: Check if 'description' or 'gl' matches any rawField in our dynamic mapping
-        # This allows users to map specific accounts directly in the UI.
-        for raw, target in mapping_dict.items():
-            if raw in desc or (gl and raw == gl):
-                # Target is expected to be a string like "Revenue > Social Gas"
-                if '>' in target:
-                    parts = [p.strip() for p in target.split('>')]
-                    return (parts[0], parts[1])
-                return (target, 'General')
-
-        # Priority 2: Hardcoded SOCAR Fallback (keeping your original logic as safety)
+    norm_row['company_id'] = company_id
+    
+    # 2. Category Mapping
+    gl = str(norm_row.get('gl_account', norm_row.get('gl', ''))).strip()
+    desc = str(norm_row.get('description', norm_row.get('memo', ''))).lower()
+    
+    category = 'Unmapped'
+    sub_category = 'Unmapped'
+    
+    # Priority 1: Dynamic Validation matches
+    mapped = False
+    for raw, target in mapping_dict.items():
+        if raw in desc or (gl and raw == gl):
+            if '>' in target:
+                parts = [p.strip() for p in target.split('>')]
+                category, sub_category = parts[0], parts[1]
+            else:
+                category, sub_category = target, 'General'
+            mapped = True
+            break
+    
+    # Priority 2: Hardcoded Fallback
+    if not mapped:
         if gl.startswith('4'):
-            if 'social' in desc or '4001' in gl: return ('Revenue', 'Social Gas Sales')
-            return ('Revenue', 'Other Revenue')
-        if gl.startswith('5'):
-            if 'cost' in desc and 'social' in desc: return ('COGS', 'Cost of Social Gas')
-            return ('Expenses', 'Operating Expenses')
-        if gl.startswith('1'): return ('Assets', 'Current Assets')
-        if gl.startswith('2'): return ('Liabilities', 'Current Liabilities')
-        if gl.startswith('3'): return ('Equity', 'Retained Earnings')
-        
-        return ('Unmapped', 'Unmapped')
-
-    df[['category', 'sub_category']] = df.apply(lambda r: pd.Series(map_category_dynamic(r)), axis=1)
+            if 'social' in desc or '4001' in gl: 
+                category, sub_category = 'Revenue', 'Social Gas Sales'
+            else:
+                category, sub_category = 'Revenue', 'Other Revenue'
+        elif gl.startswith('5'):
+            if 'cost' in desc and 'social' in desc: 
+                category, sub_category = 'COGS', 'Cost of Social Gas'
+            else:
+                category, sub_category = 'Expenses', 'Operating Expenses'
+        elif gl.startswith('1'): category, sub_category = 'Assets', 'Current Assets'
+        elif gl.startswith('2'): category, sub_category = 'Liabilities', 'Current Liabilities'
+        elif gl.startswith('3'): category, sub_category = 'Equity', 'Retained Earnings'
     
-    # 4. Department Mapping
-    def map_department(row):
-        dept = str(row.get('department', '')).lower()
-        if 'tech' in dept: return 'Technical Department'
-        if 'fin' in dept: return 'Finance Department'
-        if 'ops' in dept or 'oper' in dept: return 'Operations Department'
-        return 'General'
-
-    df['department'] = df.apply(map_department, axis=1)
-    return df
-
-def generate_ledger_entries(df):
-    """Generates Double-Entry Ledger Rows (Debit/Credit)"""
-    import pandas as pd
-    ledger_rows = []
+    norm_row['category'] = category
+    norm_row['sub_category'] = sub_category
     
-    for idx, row in df.iterrows():
-        # ... (Same logic, relying on row access)
-        amt = row.get('amount_gel', 0)
-        cat = row.get('category', 'Unmapped')
-        sub = row.get('sub_category', 'General')
-        curr = row.get('currency', 'GEL')
-        
-        # Base Transaction
-        base_txn = row.to_dict()
-        
-        # Double Entry Logic
-        debit_entry = base_txn.copy()
-        credit_entry = base_txn.copy()
-        
-        debit_entry['entry_type'] = 'Debit'
-        credit_entry['entry_type'] = 'Credit'
-        
-        if cat == 'Revenue':
-            # Revenue = Credit Revenue, Debit Cash/Receivables
-            credit_entry['account'] = sub # e.g., 'Social Gas Sales'
-            debit_entry['account'] = 'Accounts Receivable'
-        elif cat in ['Expenses', 'COGS']:
-            # Expense = Debit Expense, Credit Cash/Payables
-            debit_entry['account'] = sub # e.g., 'Cost of Social Gas'
-            credit_entry['account'] = 'Accounts Payable'
-        elif cat == 'Assets':
-            debit_entry['account'] = sub
-            credit_entry['account'] = 'Cash' # Mock offset
-        elif cat == 'Liabilities':
-            credit_entry['account'] = sub
-            debit_entry['account'] = 'Cash' # Mock offset
-        else: # Unmapped or Equity
-            debit_entry['account'] = 'Unmapped'
-            credit_entry['account'] = 'Suspense Account'
-
-        ledger_rows.append(debit_entry)
-        ledger_rows.append(credit_entry)
-        
-    return pd.DataFrame(ledger_rows)
-
-def transform_data(df):
-    import pandas as pd
-    # Normalize columns
-    df.columns = [c.lower().strip().replace(' ', '_') for c in df.columns]
+    # 3. Department
+    dept = str(norm_row.get('department', '')).lower()
+    if 'tech' in dept: norm_row['department'] = 'Technical Department'
+    elif 'fin' in dept: norm_row['department'] = 'Finance Department'
+    elif 'ops' in dept or 'oper' in dept: norm_row['department'] = 'Operations Department'
+    else: norm_row['department'] = 'General'
     
-    # 1. Date Transformation
-    if 'date' in df.columns:
-        df['date'] = pd.to_datetime(df['date'], errors='coerce').astype(str)
-        
-    # 2. Currency Conversion (Mock Logic: Convert everything to GEL)
-    if 'amount' in df.columns:
-        def convert(row):
-            try:
-                amt = float(row['amount'])
-            except:
-                return 0.0
-            currency = row.get('currency', 'GEL')
-            rate = 2.7 if currency == 'USD' else (3.0 if currency == 'EUR' else 1.0)
-            return amt * rate
-        
-        df['amount_gel'] = df.apply(convert, axis=1)
-    else:
-        df['amount_gel'] = 0.0
-        
-    # 3. Apply SOCAR Mapping Logic
-    df = map_financial_data(df)
+    # 4. Date & Amount Normalization
+    # Date
+    date_val = norm_row.get('date', '')
+    if not date_val:
+        date_val = datetime.date.today().isoformat()
+    norm_row['date'] = str(date_val)
     
-    # 4. Generate Double-Entries (Expansion)
-    ledger_df = generate_ledger_entries(df)
+    # Amount
+    try:
+        raw_amt = float(norm_row.get('amount', 0))
+    except (ValueError, TypeError):
+        raw_amt = 0.0
+        
+    currency = str(norm_row.get('currency', 'GEL')).upper()
+    rate = 2.7 if currency == 'USD' else (3.0 if currency == 'EUR' else 1.0)
+    norm_row['amount_gel'] = raw_amt * rate
     
-    return ledger_df
+    return norm_row
 
-def store_data(df, filename: str):
+def generate_ledger_entries_for_row(row):
+    """Generates Double-Entry Ledger Rows (Debit/Credit) for a single transformed row"""
+    cat = row.get('category', 'Unmapped')
+    sub = row.get('sub_category', 'General')
+    
+    base_txn = row.copy()
+    
+    debit_entry = base_txn.copy()
+    credit_entry = base_txn.copy()
+    
+    debit_entry['entry_type'] = 'Debit'
+    credit_entry['entry_type'] = 'Credit'
+    
+    if cat == 'Revenue':
+        credit_entry['account'] = sub 
+        debit_entry['account'] = 'Accounts Receivable'
+    elif cat in ['Expenses', 'COGS']:
+        debit_entry['account'] = sub 
+        credit_entry['account'] = 'Accounts Payable'
+    elif cat == 'Assets':
+        debit_entry['account'] = sub
+        credit_entry['account'] = 'Cash' 
+    elif cat == 'Liabilities':
+        credit_entry['account'] = sub
+        debit_entry['account'] = 'Cash' 
+    else: 
+        debit_entry['account'] = 'Unmapped'
+        credit_entry['account'] = 'Suspense Account'
+
+    return [debit_entry, credit_entry]
+
+
+def store_data(records, filename: str):
     # Store in Firestore 'financial_transactions' collection
     from google.cloud import firestore
     
@@ -305,15 +214,13 @@ def store_data(df, filename: str):
     batch = client.batch()
     collection_ref = client.collection('financial_transactions')
     
-    records = df.to_dict(orient='records')
     count = 0
     for record in records:
         record['source_file'] = filename
         record['ingested_at'] = firestore.SERVER_TIMESTAMP
         
-        # Use transaction_id as doc ID if available
         doc_id = str(record.get('transaction_id', ''))
-        if doc_id:
+        if doc_id and doc_id != 'nan':
             doc_ref = collection_ref.document(doc_id)
         else:
             doc_ref = collection_ref.document()
@@ -321,7 +228,6 @@ def store_data(df, filename: str):
         batch.set(doc_ref, record)
         count += 1
         
-        # Firestore batch limit is 500
         if count >= 400:
             batch.commit()
             batch = client.batch()
@@ -338,13 +244,10 @@ def store_data(df, filename: str):
 def ingest_data(req: https_fn.Request) -> https_fn.Response:
     """
     HTTP Entrypoint for Data Ingestion.
-    Supports:
-    1. Multipart/form-data upload ('file')
-    2. JSON request for existing Storage file ({'storagePath': '...', 'bucket': '...'})
     """
     try:
-        import io
-        import pandas as pd
+        import openpyxl
+        
         file_stream = None
         filename = ""
 
@@ -359,9 +262,7 @@ def ingest_data(req: https_fn.Request) -> https_fn.Response:
 
             logger.info(f"Processing from Storage: {bucket_name}/{storage_path}")
 
-            # Lazy Load Storage
             from firebase_admin import storage
-            
             bucket = storage.bucket(bucket_name)
             blob = bucket.blob(storage_path)
             
@@ -370,52 +271,56 @@ def ingest_data(req: https_fn.Request) -> https_fn.Response:
             blob.download_to_file(file_stream)
             file_stream.seek(0)
             
-        # Check for Direct File Upload
         elif 'file' in req.files:
             file_wrapper = req.files['file']
             if file_wrapper.filename == '':
                  return https_fn.Response(json.dumps({"error": "No selected file"}), status=400, headers={"Content-Type": "application/json"})
             
             filename = secure_filename(file_wrapper.filename)
-            file_stream = file_wrapper # FileStorage object acts as stream
-        
+            file_stream = file_wrapper # FileStorage
         else:
             return https_fn.Response(json.dumps({"error": "No file or storagePath provided"}), status=400, headers={"Content-Type": "application/json"})
 
-        
-        # Audio Logging (User Requirement 5)
-        logger.info(json.dumps({
-            'level': 'info',
-            'message': 'Transaction processed',
-            'transactionId': f"ingest_{filename}_{pd.Timestamp.now().timestamp()}",
-            'filename': filename,
-            'action': 'ingestion_start'
-        }))
-        
-        # Read file (CSV, Excel, or PDF)
-        df = None
+        # Read file
+        raw_rows = []
         if filename.endswith('.csv'):
-            df = pd.read_csv(file_stream)
+            if isinstance(file_stream, io.BytesIO):
+                text_stream = io.TextIOWrapper(file_stream, encoding='utf-8')
+            else:
+                # Flask FileStorage
+                file_stream.seek(0)
+                text_stream = io.TextIOWrapper(file_stream, encoding='utf-8')
+                
+            reader = csv.DictReader(text_stream)
+            raw_rows = [row for row in reader]
+            
         elif filename.endswith(('.xls', '.xlsx')):
-            df = pd.read_excel(file_stream)
+             # OpenPyXL requires file-like object
+             wb = openpyxl.load_workbook(file_stream, data_only=True)
+             ws = wb.active
+             rows_iter = ws.iter_rows(values_only=True)
+             headers = next(rows_iter, None)
+             if headers:
+                 headers = [str(h) for h in headers if h is not None]
+                 for row in rows_iter:
+                     record = {}
+                     for i, val in enumerate(row):
+                         if i < len(headers):
+                             record[headers[i]] = val
+                     raw_rows.append(record)
+
         elif filename.endswith('.pdf'):
-            # Basic PDF Text Extraction
             from pypdf import PdfReader
-            import io
-            
-            # request.files['file'] is a stream
-            pdf_bytes = io.BytesIO(file.read())
+            pdf_bytes = io.BytesIO(file_stream.read())
             reader = PdfReader(pdf_bytes)
-            
             text_content = ""
             for page in reader.pages:
                 text_content += page.extract_text() + "\n"
             
-            df = pd.DataFrame([{'content': text_content, 'type': 'unstructured_pdf_text'}])
+            raw_rows = [{'content': text_content, 'type': 'unstructured_pdf_text'}]
             
-            transformed_df = df 
-            store_data(transformed_df, filename)
-            
+            # Special case for PDF: just separate flow
+            store_data(raw_rows, filename)
             return https_fn.Response(json.dumps({
                 "message": "PDF ingested successfully (Text Extracted)",
                 "rows_processed": 1,
@@ -423,60 +328,56 @@ def ingest_data(req: https_fn.Request) -> https_fn.Response:
             }), status=201, headers={"Content-Type": "application/json"})
             
         else:
-             return https_fn.Response(json.dumps({"error": "Unsupported file format. Use CSV, Excel, or PDF."}), status=400, headers={"Content-Type": "application/json"})
+             return https_fn.Response(json.dumps({"error": "Unsupported file format."}), status=400, headers={"Content-Type": "application/json"})
              
         # Validate
-        if not validate_data(df):
-             return https_fn.Response(json.dumps({"error": "Validation failed: Missing required columns (transaction_id, amount, date, currency)"}), status=400, headers={"Content-Type": "application/json"})
+        if not validate_data(raw_rows):
+             return https_fn.Response(json.dumps({"error": "Validation failed"}), status=400, headers={"Content-Type": "application/json"})
              
-        # Transform (Apply Spine Mapping & Deterministic Rules)
-        transformed_df = transform_data(df)
+        # Transform & Map
+        mapping_rules = get_mapping_rules()
+        transformed_ledger = []
         
-        # 4. CFO Governance Check: Period Locking
-        if 'date' in transformed_df.columns and 'company_id' in transformed_df.columns:
-            # Check unique company/period combos in this upload
-            transformed_df['month_period'] = transformed_df['date'].str[:7]
-            affected_contexts = transformed_df[['company_id', 'month_period']].drop_duplicates()
+        # Track contexts for locking
+        contexts = set()
+        
+        for row in raw_rows:
+            # Map
+            mapped_row = map_row(row, mapping_rules)
             
-            for _, row in affected_contexts.iterrows():
-                if check_period_lock(row['company_id'], row['month_period']):
-                    log_audit_event(user_id, 'REJECTED_INGESTION_LOCKED', {
-                        'company': row['company_id'],
-                        'period': row['month_period'],
-                        'file': filename
-                    })
-                    return https_fn.Response(json.dumps({
-                        "error": f"Governance Violation: Period {row['month_period']} is LOCKED for {row['company_id']}."
-                    }), status=403, headers={"Content-Type": "application/json"})
+            # Check context
+            if 'date' in mapped_row and 'company_id' in mapped_row:
+                 month_period = mapped_row['date'][:7] # YYYY-MM
+                 contexts.add((mapped_row['company_id'], month_period))
 
-        # 5. Audit Valid Ingestion
+            # Generate Ledger
+            entries = generate_ledger_entries_for_row(mapped_row)
+            transformed_ledger.extend(entries)
+        
+        # Check Locks
+        for company_id, month_period in contexts:
+            if check_period_lock(company_id, month_period):
+                 return https_fn.Response(json.dumps({
+                     "error": f"Governance Violation: Period {month_period} is LOCKED for {company_id}."
+                 }), status=403, headers={"Content-Type": "application/json"})
+
+        # Metrics
+        total_value = sum(float(r.get('amount_gel', 0)) for r in transformed_ledger if r.get('entry_type') == 'Debit') # Sum Debits only
+        
         log_audit_event(user_id, 'INGESTION_COMPLETED', {
             'filename': filename,
-            'row_count': len(transformed_df),
-            'companies': list(transformed_df['company_id'].unique())
+            'row_count': len(transformed_ledger),
+            'unique_raw_rows': len(raw_rows)
         })
-        # Calculate Summary Metrics
-        total_value = transformed_df['amount_gel'].sum()
-        row_count = len(transformed_df)
-        date_min = transformed_df['date'].min() if 'date' in transformed_df.columns else 'N/A'
-        date_max = transformed_df['date'].max() if 'date' in transformed_df.columns else 'N/A'
-        
-        validation_summary = {
-            "total_rows": int(row_count),
-            "date_range": f"{date_min} to {date_max}",
-            "currency_normalized": "GEL",
-            "mapped_companies": transformed_df['company_id'].nunique() if 'company_id' in transformed_df.columns else 0
-        }
         
         # Store
-        store_data(transformed_df, filename)
+        store_data(transformed_ledger, filename)
         
         return https_fn.Response(json.dumps({
             "message": "Data ingested successfully",
-            "rows_processed": row_count,
-            "total_value_gel": float(total_value),
-            "validation_summary": validation_summary,
-            "columns": list(transformed_df.columns)
+            "rows_processed": len(transformed_ledger),
+            "total_value_gel": total_value,
+            "columns": list(transformed_ledger[0].keys()) if transformed_ledger else []
         }), status=201, headers={"Content-Type": "application/json"})
 
     except Exception as e:

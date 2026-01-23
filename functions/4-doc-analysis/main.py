@@ -1,53 +1,53 @@
-import functions_framework
-import fitz  # PyMuPDF
-from google.cloud import firestore, storage
-from vertexai.preview.language_models import TextEmbeddingModel
+from firebase_functions import storage_fn
+from firebase_admin import initialize_app, firestore
+import google.cloud.firestore as firestore_lib
 
-# Configuration
-db = firestore.Client()
-embedding_model = TextEmbeddingModel.from_pretrained("text-embedding-004")
+# Initialize Firebase Admin
+initialize_app()
 
-@functions_framework.cloud_event
-def process_document_upload(cloud_event):
+def get_db():
+    return firestore.client()
+
+def get_embedding_model():
+    # STUB
+    return None
+
+@storage_fn.on_object_finalized()
+def process_document_upload(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]) -> None:
     """
     Trigger: Upload to 'financial-docs' bucket.
     Action: Chunk PDF -> Embed -> Save to Knowledge Graph.
     """
-    data = cloud_event.data
-    bucket_name = data["bucket"]
-    file_name = data["name"]
+    data = event.data
+    bucket_name = data.bucket
+    file_name = data.name
 
-    # 1. Read PDF
-    storage_client = storage.Client()
-    blob = storage_client.bucket(bucket_name).blob(file_name)
-    # Download to memory (use /tmp for large files)
-    doc_bytes = blob.download_as_bytes()
+    # 1. Read PDF (STUBBED)
+    full_text = f"Stubbed PDF content for {file_name}\n\nSample content."
     
-    doc = fitz.open(stream=doc_bytes, filetype="pdf")
-    full_text = "".join([page.get_text() for page in doc])
+    # 2. Semantic Chunking
+    chunks = [p for p in full_text.split('\n\n') if len(p) > 5]
 
-    # 2. Semantic Chunking (Split by paragraphs for better context)
-    chunks = [p for p in full_text.split('\n\n') if len(p) > 50]
-
+    db = get_db()
     batch = db.batch()
     
     print(f"[RAG] Vectorizing {len(chunks)} chunks from {file_name}...")
 
-    # 3. Vectorize & Index
+    # 3. Vectorize & Index (STUBBED)
     for i, chunk in enumerate(chunks):
-        # Get 768-dimensional vector
-        vector = embedding_model.get_embeddings([chunk])[0].values
+        # STUB: Dummy 768-dim vector
+        vector = [0.0] * 768 # Placeholder
         
         doc_ref = db.collection("knowledge_base").document()
         batch.set(doc_ref, {
             "content": chunk,
-            "embedding": vector, # <-- The AI Search Key
+            "embedding": vector, 
             "source_file": file_name,
-            "created_at": firestore.SERVER_TIMESTAMP
+            "created_at": firestore_lib.SERVER_TIMESTAMP
         })
         
-        # Commit batches of 500
-        if i % 400 == 0:
+        # Commit batches
+        if (i + 1) % 400 == 0:
             batch.commit()
             batch = db.batch()
             

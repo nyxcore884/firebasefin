@@ -96,19 +96,39 @@ export const AIAssistant: React.FC = () => {
     try {
       // Calling the "Brain" function (Architecture Component: 9-ai-query)
       // Uses Firebase Hosting Rewrite
-      const response = await fetch('/api/query', {
+      const response = await fetch(`/api/query?cb=${Date.now()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: input, userId: 'user-1' }),
+        body: JSON.stringify({
+          query: input,
+          userId: 'user-1',
+          context: {
+            company_id: 'SGG-001',
+            period: '2023-11'
+          }
+        }),
       });
 
+      // Check if response is ok - if not, try to parse error details
       if (!response.ok) {
-        // Fallback to the old inference endpoint if the new one fails/isn't serving
-        console.warn("Primary AI Brain failed, trying backup...");
-        throw new Error('Network response was not ok');
+        const errorText = await response.text();
+        console.error("AI Query failed:", response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}...`);
       }
 
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("JSON Parse Error:", e, text);
+        throw new Error(`Invalid JSON response: ${text.substring(0, 50)}...`);
+      }
+
+      // Check if the response contains an error message
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
       const assistantMessage: Message = {
         id: Date.now().toString(),
@@ -119,12 +139,13 @@ export const AIAssistant: React.FC = () => {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
-      console.error('Error fetching prediction:', error);
-      // Fallback message
+    } catch (error: any) {
+      console.error('AI Query Error:', error);
+      // Show more helpful error message
+      const errorMessage = error?.message || JSON.stringify(error) || "Unknown error occurred";
       const assistantMessage: Message = {
         id: Date.now().toString(),
-        content: "I'm having trouble connecting to my cognitive engine. Please ensure the 'ai_query_api' function is deployed.",
+        content: `I'm having trouble retrieving financial records right now. \n\n**Debug Details:**\n\`${errorMessage}\``,
         role: 'assistant',
       };
       setMessages((prev) => [...prev, assistantMessage]);

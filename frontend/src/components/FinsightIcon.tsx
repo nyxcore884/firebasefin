@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 export const FinsightIcon = () => (
   <svg

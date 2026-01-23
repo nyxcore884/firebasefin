@@ -13,12 +13,15 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5002',
+        // In local development, we want to hit the Firebase Hosting Emulator (5002) 
+        // which handles the rewrites to Functions (5001)
+        target: 'http://127.0.0.1:5002',
         changeOrigin: true,
+        secure: false,
       },
-      // Keep these for legacy if needed, but we prefer /api
-      '/functions': {
-        target: 'http://localhost:5001',
+      // Direct access to functions if needed
+      '/studio-9381016045-4d625/us-central1': {
+        target: 'http://127.0.0.1:5001',
         changeOrigin: true,
       }
     },

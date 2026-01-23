@@ -236,15 +236,17 @@ const Analysis = () => {
     const fetchVarianceData = async () => {
       try {
         setLoading(true);
-        // Using local Firebase Emulator endpoint
-        const response = await fetch('http://127.0.0.1:5001/firebasefin-main/us-central1/process_transaction/data');
+        // Using production endpoint via Hosting Rewrite
+        const response = await fetch('/api/process_transaction/data');
         if (!response.ok) throw new Error('Network response was not ok');
 
         const data = await response.json();
 
         // Map backend data to frontend structure if needed, or use directly
         // Backend now returns the correct structure, so we just ensure types
-        const processedData: VarianceDataItem[] = data.map((item: any) => ({
+        const rawData = Array.isArray(data) ? data : (data.data || []);
+
+        const processedData: VarianceDataItem[] = rawData.map((item: any) => ({
           id: item.id,
           article: item.article || item.itemName, // Fallback
           budget: item.budget,
@@ -260,16 +262,8 @@ const Analysis = () => {
         console.error("Failed to fetch variance data:", error);
         toast.error('Failed to connect to Financial Engine. Loading demo data.');
 
-        // Fallback demo data if backend is not running
-        setVarianceData([
-          { id: 'OPEX-001', article: 'Office Supplies', budget: 5000, actual: 4890, variance: 110, pct: 2.2, status: 'success', category: 'Operating Expenses' },
-          { id: 'OPEX-002', article: 'Software Licensing', budget: 12000, actual: 12500, variance: -500, pct: -4.2, status: 'warning', category: 'Operating Expenses' },
-          { id: 'CAPEX-001', article: 'New Laptops', budget: 25000, actual: 23800, variance: 1200, pct: 4.8, status: 'success', category: 'Capital Expenditures' },
-          { id: 'MKTG-001', article: 'Social Media Campaign', budget: 8000, actual: 9200, variance: -1200, pct: -15.0, status: 'critical', category: 'Marketing & Research' },
-          { id: 'RSRCH-001', article: 'Market Research Study', budget: 15000, actual: 14500, variance: 500, pct: 3.3, status: 'success', category: 'Marketing & Research' },
-          { id: 'HR-001', article: 'Employee Training', budget: 10000, actual: 11000, variance: -1000, pct: -10.0, status: 'critical', category: 'Human Resources' },
-          { id: 'OPEX-003', article: 'Travel Expenses', budget: 7500, actual: 6000, variance: 1500, pct: 20.0, status: 'success', category: 'Operating Expenses' },
-        ]);
+        toast.error('Failed to connect to Financial Engine.');
+        setVarianceData([]);
       } finally {
         setLoading(false);
       }
@@ -327,7 +321,7 @@ const Analysis = () => {
               <DropdownMenuItem onClick={() => handleDownload('PDF')}>Export as PDF</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" className="gap-2 shadow-lg shadow-primary/20">
+          <Button size="sm" className="gap-2 shadow-lg shadow-primary/20" onClick={() => toast.info("Budget Creation Wizard will be available in the next release.")}>
             <Plus className="h-4 w-4" /> New Budget
           </Button>
         </div>

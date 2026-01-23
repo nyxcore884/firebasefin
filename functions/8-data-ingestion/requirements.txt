@@ -1,6 +1,6 @@
 functions-framework==3.*
 flask==3.*
-pandas
+openpyxl
 werkzeug
 google-cloud-firestore
 pypdf

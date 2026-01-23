@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Building2, Wallet, Layers, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
+import { ChevronRight, ChevronDown, Building2, Wallet, Layers, AlertCircle, CheckCircle } from 'lucide-react';
 import { Company, Department, FinancialNode } from '../../types/structure';
 import { validateBalanceSheet } from '@/lib/financial-logic';
 import { cn } from '@/lib/utils';
@@ -119,13 +119,15 @@ const DepartmentView = ({ dept }: { dept: Department }) => {
 };
 
 export const FinancialHierarchy = ({ data }: FinancialHierarchyProps) => {
-    const [selectedCompany, setSelectedCompany] = useState<string>(data[0]?.id);
-    const [selectedDept, setSelectedDept] = useState<string>(data[0]?.subsidiaries?.[0]?.departments?.[0]?.id || '');
+    const [selectedCompany] = useState<string>(data?.[0]?.id || '');
+    const [selectedDept, setSelectedDept] = useState<string>(data?.[0]?.subsidiaries?.[0]?.departments?.[0]?.id || '');
 
     // Flatten logic for selection helper (simplified)
-    const activeCompany = data.find(c => c.id === selectedCompany) || data[0];
-    const activeSubsidiary = activeCompany.subsidiaries?.find(s => s.departments?.some(d => d.id === selectedDept));
+    const activeCompany = (data && data.length > 0) ? (data.find(c => c.id === selectedCompany) || data[0]) : null;
+    const activeSubsidiary = activeCompany?.subsidiaries?.find(s => s.departments?.some(d => d.id === selectedDept));
     const activeDept = activeSubsidiary?.departments?.find(d => d.id === selectedDept);
+
+    if (!activeCompany) return <div className="p-8 text-muted-foreground">No hierarchy data available</div>;
 
     return (
         <div className="flex h-full min-h-[500px] border rounded-xl overflow-hidden bg-background/50 shadow-sm">

@@ -1,6 +1,8 @@
 functions-framework==3.*
 flask==3.*
 google-cloud-firestore
+requests==2.31.0
+google-cloud-aiplatform
 
 firebase-functions
 firebase-admin

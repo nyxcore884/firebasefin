@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -59,7 +59,7 @@ const AiFinancialManagement = () => {
         const fetchAnomalies = async () => {
             try {
                 // Local function URL - change for production
-                const res = await fetch('http://127.0.0.1:5001/firebasefin-main/us-central1/process_transaction/anomalies');
+                const res = await fetch('/api/process_transaction/anomalies');
                 if (res.ok) {
                     const data = await res.json();
                     if (Array.isArray(data) && data.length > 0) {
@@ -209,7 +209,7 @@ const AiFinancialManagement = () => {
                                     onClick={async () => {
                                         try {
                                             const toastId = toast.loading("Starting Vertex AI Tuning Job...");
-                                            const res = await fetch('http://127.0.0.1:5001/firebasefin-main/us-central1/process_transaction/vertex/tune', {
+                                            const res = await fetch('/api/process_transaction/vertex/tune', {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({

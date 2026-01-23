@@ -38,7 +38,7 @@ const DataHub = () => {
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-5 duration-700">
-      <Tabs defaultValue="insights" className="space-y-6">
+      <Tabs defaultValue="ingestion" className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-2">
             <h1 className="text-3xl font-bold tracking-tight text-foreground/90 flex items-center gap-3">

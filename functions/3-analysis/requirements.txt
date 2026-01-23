@@ -1,9 +1,7 @@
 functions-framework
 google-cloud-firestore
 google-cloud-storage
-pandas
-numpy
-prophet
+
 
 firebase-functions
 firebase-admin

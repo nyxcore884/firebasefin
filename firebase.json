@@ -47,7 +47,10 @@
         "node_modules",
         ".git",
         "firebase-debug.log"
-      ]
+      ],
+      "trigger": {
+        "bucket": "studio-9381016045-4d625.appspot.com"
+      }
     },
     {
       "source": "functions/5-financial-engine",
@@ -127,48 +130,33 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "headers": [
+      {
+        "source": "**/*.@(js|html|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      }
+    ],
     "rewrites": [
       {
-        "source": "/api/analyze_document",
-        "run": {
-          "serviceId": "doc-analysis",
-          "region": "us-central1"
-        }
+        "source": "/api/query",
+        "function": "ai_query_api"
       },
       {
-        "source": "/api/**",
-        "run": {
-          "serviceId": "financial-analysis-engine",
-          "region": "us-central1"
-        }
-      },
-      {
-        "source": "/api/registry/**",
-        "run": {
-          "serviceId": "registry_api",
-          "region": "us-central1"
-        }
+        "source": "/api/prognostics",
+        "function": "generate_prognosis"
       },
       {
         "source": "/api/ingest",
-        "run": {
-          "serviceId": "ingest_data",
-          "region": "us-central1"
-        }
+        "function": "ingest_data"
       },
       {
-        "source": "/api/query",
-        "run": {
-          "serviceId": "ai_query_api",
-          "region": "us-central1"
-        }
-      },
-      {
-        "source": "/api/report",
-        "run": {
-          "serviceId": "generate_executive_report",
-          "region": "us-central1"
-        }
+        "source": "/api/process_transaction/**",
+        "function": "process_transaction"
       },
       {
         "source": "**",

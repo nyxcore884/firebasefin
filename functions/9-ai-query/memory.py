@@ -3,6 +3,7 @@ import datetime
 from google.cloud import firestore
 
 # Initialize Logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Lazy Firestore
@@ -14,10 +15,11 @@ def get_db():
         db = firestore.Client()
     return db
 
-def save_message(user_id: str, role: str, content: str):
+def save_message(user_id: str, role: str, content: str) -> bool:
     """
     Saves a single message to the user's conversation history in Firestore.
     Structure: ai_memory/{user_id}/messages/{timestamp}
+    Returns True if successful, False otherwise.
     """
     try:
         if not user_id:
@@ -32,10 +34,12 @@ def save_message(user_id: str, role: str, content: str):
             "timestamp": timestamp
         })
         logger.info(f"Saved message for user {user_id}")
+        return True
     except Exception as e:
         logger.error(f"Failed to save message: {e}")
+        return False
 
-def learn_fact(fact_text: str, source: str = "user_correction"):
+def learn_fact(fact_text: str, source: str = "user_correction") -> bool:
     """
     Saves a learned fact to the global knowledge base.
     Structure: ai_knowledge_base/{auto_id}
@@ -49,8 +53,10 @@ def learn_fact(fact_text: str, source: str = "user_correction"):
             "confidence": 1.0  # User corrections are high confidence
         })
         logger.info(f"Learned new fact: {fact_text}")
+        return True
     except Exception as e:
         logger.error(f"Failed to learn fact: {e}")
+        return False
 
 def get_recent_context(user_id: str, limit: int = 5) -> list:
     """
@@ -60,6 +66,7 @@ def get_recent_context(user_id: str, limit: int = 5) -> list:
         if not user_id:
             return []
 
+        # Note: This query requires a composite index on timestamp DESC ending
         docs = (
             get_db()
             .collection("ai_memory")
@@ -100,4 +107,5 @@ def get_learned_facts(limit: int = 3) -> str:
             
         return "Recall these recent learnings:\n" + "\n".join([f"- {f}" for f in facts])
     except Exception as e:
+        logger.error(f"Failed to retrieve learned facts: {e}")
         return ""

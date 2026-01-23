@@ -1,0 +1,12 @@
+venv
+.venv
+__pycache__
+*.pyc
+.git
+.gitignore
+.firebase
+firebase-debug.log
+functions_list.txt
+node_modules
+dist
+build

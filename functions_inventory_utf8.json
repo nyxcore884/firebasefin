@@ -1,0 +1,496 @@
+﻿{
+  "status": "success",
+  "result": [
+    {
+      "platform": "gcfv2",
+      "id": "ai_query_api",
+      "project": "studio-9381016045-4d625",
+      "region": "us-central1",
+      "httpsTrigger": {},
+      "entryPoint": "ai_query_api",
+      "runtime": "python311",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-733431756980-us-central1",
+          "object": "ai_query_api/function-source.zip",
+          "generation": "1769122859908562"
+        }
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "environmentVariables": {
+        "FIREBASE_CONFIG": "{\"projectId\":\"studio-9381016045-4d625\",\"storageBucket\":\"studio-9381016045-4d625.firebasestorage.app\"}",
+        "GCLOUD_PROJECT": "studio-9381016045-4d625",
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/studio-9381016045-4d625/locations/us-central1/services/ai_query_api",
+        "FUNCTION_TARGET": "ai_query_api",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "timeoutSeconds": 60,
+      "uri": "https://us-central1-studio-9381016045-4d625.cloudfunctions.net/ai_query_api",
+      "serviceAccount": "733431756980-compute@developer.gserviceaccount.com",
+      "availableMemoryMb": 512,
+      "cpu": 1,
+      "concurrency": 80,
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "firebase-functions-codebase": "ai-query",
+        "firebase-functions-hash": "7b5f2b92315aba5ec32bd8313f94e29ffe96a6f9"
+      },
+      "runServiceId": "ai-query-api",
+      "codebase": "ai-query",
+      "hash": "7b5f2b92315aba5ec32bd8313f94e29ffe96a6f9",
+      "state": "ACTIVE"
+    },
+    {
+      "platform": "gcfv2",
+      "id": "data-ingestion-function",
+      "project": "studio-9381016045-4d625",
+      "region": "us-central1",
+      "eventTrigger": {
+        "eventType": "google.cloud.storage.object.v1.finalized",
+        "retry": false,
+        "eventFilters": {
+          "bucket": "raw-financial-data-ingestion"
+        },
+        "region": "us-central1"
+      },
+      "entryPoint": "process_file_upload",
+      "runtime": "python311",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-733431756980-us-central1",
+          "object": "data-ingestion-function/function-source.zip",
+          "generation": "1768764095985166"
+        }
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "environmentVariables": {
+        "PUBSUB_TOPIC_NAME": "file-processing-topic",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "timeoutSeconds": 60,
+      "uri": "https://us-central1-studio-9381016045-4d625.cloudfunctions.net/data-ingestion-function",
+      "serviceAccount": "733431756980-compute@developer.gserviceaccount.com",
+      "availableMemoryMb": 488.28125,
+      "cpu": 0.3333,
+      "maxInstances": 12,
+      "concurrency": 1,
+      "labels": {
+        "deployment-tool": "cli-gcloud"
+      },
+      "runServiceId": "data-ingestion-function",
+      "codebase": "default",
+      "state": "ACTIVE"
+    },
+    {
+      "platform": "gcfv2",
+      "id": "data-transformation-function",
+      "project": "studio-9381016045-4d625",
+      "region": "us-central1",
+      "eventTrigger": {
+        "eventType": "google.cloud.pubsub.topic.v1.messagePublished",
+        "retry": false,
+        "eventFilters": {
+          "topic": "projects/studio-9381016045-4d625/topics/file-processing-topic"
+        },
+        "region": "us-central1"
+      },
+      "entryPoint": "transform_and_load_data",
+      "runtime": "python311",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-733431756980-us-central1",
+          "object": "data-transformation-function/function-source.zip",
+          "generation": "1768764478289491"
+        }
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "environmentVariables": {
+        "LOG_EXECUTION_ID": "true"
+      },
+      "timeoutSeconds": 60,
+      "uri": "https://us-central1-studio-9381016045-4d625.cloudfunctions.net/data-transformation-function",
+      "serviceAccount": "733431756980-compute@developer.gserviceaccount.com",
+      "availableMemoryMb": 488.28125,
+      "cpu": 0.3333,
+      "maxInstances": 6,
+      "concurrency": 1,
+      "labels": {
+        "deployment-tool": "cli-gcloud"
+      },
+      "runServiceId": "data-transformation-function",
+      "codebase": "default",
+      "state": "ACTIVE"
+    },
+    {
+      "platform": "gcfv2",
+      "id": "generate_executive_report",
+      "project": "studio-9381016045-4d625",
+      "region": "us-central1",
+      "httpsTrigger": {},
+      "entryPoint": "generate_executive_report",
+      "runtime": "python311",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-733431756980-us-central1",
+          "object": "generate_executive_report/function-source.zip",
+          "generation": "1769122951307148"
+        }
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "environmentVariables": {
+        "FIREBASE_CONFIG": "{\"projectId\":\"studio-9381016045-4d625\",\"storageBucket\":\"studio-9381016045-4d625.firebasestorage.app\"}",
+        "GCLOUD_PROJECT": "studio-9381016045-4d625",
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/studio-9381016045-4d625/locations/us-central1/services/generate_executive_report",
+        "FUNCTION_TARGET": "generate_executive_report",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "timeoutSeconds": 60,
+      "uri": "https://us-central1-studio-9381016045-4d625.cloudfunctions.net/generate_executive_report",
+      "serviceAccount": "733431756980-compute@developer.gserviceaccount.com",
+      "availableMemoryMb": 256,
+      "cpu": 1,
+      "concurrency": 80,
+      "labels": {
+        "firebase-functions-hash": "fbcc81bf768b10d3c9fcde62e7c1f29898d78374",
+        "deployment-tool": "cli-firebase",
+        "firebase-functions-codebase": "reporting"
+      },
+      "runServiceId": "generate-executive-report",
+      "codebase": "reporting",
+      "hash": "fbcc81bf768b10d3c9fcde62e7c1f29898d78374",
+      "state": "ACTIVE"
+    },
+    {
+      "platform": "gcfv2",
+      "id": "generate_financial_prognosis",
+      "project": "studio-9381016045-4d625",
+      "region": "us-central1",
+      "httpsTrigger": {},
+      "entryPoint": "generate_financial_prognosis",
+      "runtime": "python311",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-733431756980-us-central1",
+          "object": "generate_financial_prognosis/function-source.zip",
+          "generation": "1768780073778443"
+        }
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "environmentVariables": {
+        "LOG_EXECUTION_ID": "true"
+      },
+      "timeoutSeconds": 60,
+      "uri": "https://us-central1-studio-9381016045-4d625.cloudfunctions.net/generate_financial_prognosis",
+      "serviceAccount": "733431756980-compute@developer.gserviceaccount.com",
+      "availableMemoryMb": 2048,
+      "cpu": 1,
+      "maxInstances": 3,
+      "concurrency": 1,
+      "labels": {
+        "deployment-tool": "cli-gcloud"
+      },
+      "runServiceId": "generate-financial-prognosis",
+      "codebase": "default",
+      "state": "ACTIVE"
+    },
+    {
+      "platform": "gcfv2",
+      "id": "generate_prognosis",
+      "project": "studio-9381016045-4d625",
+      "region": "us-central1",
+      "httpsTrigger": {},
+      "entryPoint": "generate_prognosis",
+      "runtime": "python311",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-733431756980-us-central1",
+          "object": "generate_prognosis/function-source.zip",
+          "generation": "1769161571715621"
+        }
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "environmentVariables": {
+        "FIREBASE_CONFIG": "{\"projectId\":\"studio-9381016045-4d625\",\"storageBucket\":\"studio-9381016045-4d625.firebasestorage.app\"}",
+        "GCLOUD_PROJECT": "studio-9381016045-4d625",
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/studio-9381016045-4d625/locations/us-central1/services/generate_prognosis",
+        "FUNCTION_TARGET": "generate_prognosis",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "timeoutSeconds": 60,
+      "uri": "https://us-central1-studio-9381016045-4d625.cloudfunctions.net/generate_prognosis",
+      "serviceAccount": "733431756980-compute@developer.gserviceaccount.com",
+      "availableMemoryMb": 512,
+      "cpu": 1,
+      "concurrency": 80,
+      "labels": {
+        "firebase-functions-hash": "f1320d4bb9a88e9e0d8ce3ede3c8513911f52ff6",
+        "deployment-tool": "cli-firebase",
+        "firebase-functions-codebase": "prognosis-engine"
+      },
+      "runServiceId": "generate-prognosis",
+      "codebase": "prognosis-engine",
+      "hash": "f1320d4bb9a88e9e0d8ce3ede3c8513911f52ff6",
+      "state": "ACTIVE"
+    },
+    {
+      "platform": "gcfv2",
+      "id": "ingest_data",
+      "project": "studio-9381016045-4d625",
+      "region": "us-central1",
+      "httpsTrigger": {},
+      "entryPoint": "ingest_data",
+      "runtime": "python311",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-733431756980-us-central1",
+          "object": "ingest_data/function-source.zip",
+          "generation": "1769162233417232"
+        }
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "environmentVariables": {
+        "FIREBASE_CONFIG": "{\"projectId\":\"studio-9381016045-4d625\",\"storageBucket\":\"studio-9381016045-4d625.firebasestorage.app\"}",
+        "GCLOUD_PROJECT": "studio-9381016045-4d625",
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/studio-9381016045-4d625/locations/us-central1/services/ingest_data",
+        "FUNCTION_TARGET": "ingest_data",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "timeoutSeconds": 300,
+      "uri": "https://us-central1-studio-9381016045-4d625.cloudfunctions.net/ingest_data",
+      "serviceAccount": "733431756980-compute@developer.gserviceaccount.com",
+      "availableMemoryMb": 512,
+      "cpu": 1,
+      "concurrency": 80,
+      "labels": {
+        "firebase-functions-codebase": "data-ingestion-v2",
+        "firebase-functions-hash": "d4886bbab72056891a1b9ab1da64c350c0e97f99",
+        "deployment-tool": "cli-firebase"
+      },
+      "runServiceId": "ingest-data",
+      "codebase": "data-ingestion-v2",
+      "hash": "d4886bbab72056891a1b9ab1da64c350c0e97f99",
+      "state": "ACTIVE"
+    },
+    {
+      "platform": "gcfv2",
+      "id": "process_document_upload",
+      "project": "studio-9381016045-4d625",
+      "region": "us-central1",
+      "eventTrigger": {
+        "eventType": "google.cloud.storage.object.v1.finalized",
+        "retry": false,
+        "eventFilters": {
+          "bucket": "studio-9381016045-4d625.firebasestorage.app"
+        },
+        "region": "us-central1"
+      },
+      "entryPoint": "process_document_upload",
+      "runtime": "python311",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-733431756980-us-central1",
+          "object": "process_document_upload/function-source.zip",
+          "generation": "1769160236030990"
+        }
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "environmentVariables": {
+        "FIREBASE_CONFIG": "{\"projectId\":\"studio-9381016045-4d625\",\"storageBucket\":\"studio-9381016045-4d625.firebasestorage.app\"}",
+        "GCLOUD_PROJECT": "studio-9381016045-4d625",
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/studio-9381016045-4d625/locations/us-central1/services/process_document_upload",
+        "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+        "FUNCTION_TARGET": "process_document_upload",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "timeoutSeconds": 60,
+      "uri": "https://us-central1-studio-9381016045-4d625.cloudfunctions.net/process_document_upload",
+      "serviceAccount": "733431756980-compute@developer.gserviceaccount.com",
+      "availableMemoryMb": 256,
+      "cpu": 1,
+      "concurrency": 80,
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "firebase-functions-codebase": "doc-analysis",
+        "firebase-functions-hash": "e164f8a960ea4f16a17371a455387a73beb0ca95"
+      },
+      "runServiceId": "process-document-upload",
+      "codebase": "doc-analysis",
+      "hash": "e164f8a960ea4f16a17371a455387a73beb0ca95",
+      "state": "ACTIVE"
+    },
+    {
+      "platform": "gcfv2",
+      "id": "process_file_upload",
+      "project": "studio-9381016045-4d625",
+      "region": "us-central1",
+      "eventTrigger": {
+        "eventType": "google.cloud.storage.object.v1.finalized",
+        "retry": false,
+        "eventFilters": {
+          "bucket": "raw-financial-data-ingestion"
+        },
+        "region": "us-central1"
+      },
+      "entryPoint": "process_file_upload",
+      "runtime": "python311",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-733431756980-us-central1",
+          "object": "process_file_upload/function-source.zip",
+          "generation": "1769158115388629"
+        }
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "environmentVariables": {
+        "FIREBASE_CONFIG": "{\"projectId\":\"studio-9381016045-4d625\",\"storageBucket\":\"studio-9381016045-4d625.firebasestorage.app\"}",
+        "GCLOUD_PROJECT": "studio-9381016045-4d625",
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/studio-9381016045-4d625/locations/us-central1/services/process_file_upload",
+        "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+        "FUNCTION_TARGET": "process_file_upload",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "timeoutSeconds": 60,
+      "uri": "https://us-central1-studio-9381016045-4d625.cloudfunctions.net/process_file_upload",
+      "serviceAccount": "733431756980-compute@developer.gserviceaccount.com",
+      "availableMemoryMb": 256,
+      "cpu": 1,
+      "concurrency": 80,
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "firebase-functions-codebase": "ingestion",
+        "firebase-functions-hash": "c12cffc22c8c327f27ce520d220142cf6be46ab7"
+      },
+      "runServiceId": "process-file-upload",
+      "codebase": "ingestion",
+      "hash": "c12cffc22c8c327f27ce520d220142cf6be46ab7",
+      "state": "ACTIVE"
+    },
+    {
+      "platform": "gcfv2",
+      "id": "process_transaction",
+      "project": "studio-9381016045-4d625",
+      "region": "us-central1",
+      "httpsTrigger": {},
+      "entryPoint": "process_transaction",
+      "runtime": "python311",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-733431756980-us-central1",
+          "object": "process_transaction/function-source.zip",
+          "generation": "1769153682703385"
+        }
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "environmentVariables": {
+        "FIREBASE_CONFIG": "{\"projectId\":\"studio-9381016045-4d625\",\"storageBucket\":\"studio-9381016045-4d625.firebasestorage.app\"}",
+        "GCLOUD_PROJECT": "studio-9381016045-4d625",
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/studio-9381016045-4d625/locations/us-central1/services/process_transaction",
+        "FUNCTION_TARGET": "process_transaction",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "timeoutSeconds": 60,
+      "uri": "https://us-central1-studio-9381016045-4d625.cloudfunctions.net/process_transaction",
+      "serviceAccount": "733431756980-compute@developer.gserviceaccount.com",
+      "availableMemoryMb": 256,
+      "cpu": 1,
+      "maxInstances": 3,
+      "concurrency": 80,
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "firebase-functions-codebase": "financial-engine",
+        "firebase-functions-hash": "ae447f731a7be2f56991a1deb0c321b270f89e4d"
+      },
+      "runServiceId": "process-transaction",
+      "codebase": "financial-engine",
+      "hash": "ae447f731a7be2f56991a1deb0c321b270f89e4d",
+      "state": "ACTIVE"
+    },
+    {
+      "platform": "gcfv2",
+      "id": "registry_api",
+      "project": "studio-9381016045-4d625",
+      "region": "us-central1",
+      "httpsTrigger": {},
+      "entryPoint": "registry_api",
+      "runtime": "python311",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-733431756980-us-central1",
+          "object": "registry_api/function-source.zip",
+          "generation": "1769122018071975"
+        }
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "environmentVariables": {
+        "FIREBASE_CONFIG": "{\"projectId\":\"studio-9381016045-4d625\",\"storageBucket\":\"studio-9381016045-4d625.firebasestorage.app\"}",
+        "GCLOUD_PROJECT": "studio-9381016045-4d625",
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/studio-9381016045-4d625/locations/us-central1/services/registry_api",
+        "FUNCTION_TARGET": "registry_api",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "timeoutSeconds": 60,
+      "uri": "https://us-central1-studio-9381016045-4d625.cloudfunctions.net/registry_api",
+      "serviceAccount": "733431756980-compute@developer.gserviceaccount.com",
+      "availableMemoryMb": 256,
+      "cpu": 1,
+      "concurrency": 80,
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "firebase-functions-codebase": "dataset-registry",
+        "firebase-functions-hash": "a929e97b3f1b8bc2259ad05eeece9291803f6a5f"
+      },
+      "runServiceId": "registry-api",
+      "codebase": "dataset-registry",
+      "hash": "a929e97b3f1b8bc2259ad05eeece9291803f6a5f",
+      "state": "ACTIVE"
+    },
+    {
+      "platform": "gcfv2",
+      "id": "transform_and_load_data",
+      "project": "studio-9381016045-4d625",
+      "region": "us-central1",
+      "eventTrigger": {
+        "eventType": "google.cloud.pubsub.topic.v1.messagePublished",
+        "retry": false,
+        "eventFilters": {
+          "topic": "projects/studio-9381016045-4d625/topics/files-to-process"
+        },
+        "region": "us-central1"
+      },
+      "entryPoint": "transform_and_load_data",
+      "runtime": "python311",
+      "source": {
+        "storageSource": {
+          "bucket": "gcf-v2-sources-733431756980-us-central1",
+          "object": "transform_and_load_data/function-source.zip",
+          "generation": "1769154937508943"
+        }
+      },
+      "ingressSettings": "ALLOW_ALL",
+      "environmentVariables": {
+        "FIREBASE_CONFIG": "{\"projectId\":\"studio-9381016045-4d625\",\"storageBucket\":\"studio-9381016045-4d625.firebasestorage.app\"}",
+        "GCLOUD_PROJECT": "studio-9381016045-4d625",
+        "EVENTARC_CLOUD_EVENT_SOURCE": "projects/studio-9381016045-4d625/locations/us-central1/services/transform_and_load_data",
+        "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+        "FUNCTION_TARGET": "transform_and_load_data",
+        "LOG_EXECUTION_ID": "true"
+      },
+      "timeoutSeconds": 60,
+      "uri": "https://us-central1-studio-9381016045-4d625.cloudfunctions.net/transform_and_load_data",
+      "serviceAccount": "733431756980-compute@developer.gserviceaccount.com",
+      "availableMemoryMb": 256,
+      "cpu": 1,
+      "concurrency": 80,
+      "labels": {
+        "firebase-functions-codebase": "transformation",
+        "firebase-functions-hash": "ee5685f48dbacc77927d1fd96a704f94cbf5ef0c",
+        "deployment-tool": "cli-firebase"
+      },
+      "runServiceId": "transform-and-load-data",
+      "codebase": "transformation",
+      "hash": "ee5685f48dbacc77927d1fd96a704f94cbf5ef0c",
+      "state": "ACTIVE"
+    }
+  ]
+}
+

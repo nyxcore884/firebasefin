@@ -1,12 +1,4 @@
-functions-framework==3.*
-flask==3.0.0
-google-cloud-firestore
-pandas
-scikit-learn
-prophet
-flask-cors
-google-cloud-aiplatform
-great-expectations
-
 firebase-functions
 firebase-admin
+google-cloud-firestore
+google-cloud-storage

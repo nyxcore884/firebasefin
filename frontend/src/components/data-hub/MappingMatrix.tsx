@@ -37,7 +37,7 @@ const GL_HIERARCHY = [
 
 const MappingMatrix = () => {
     const [mappings, setMappings] = useState(INITIAL_MAPPINGS);
-    const [, setIsSaving] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Load mappings from Firestore on mount
     useEffect(() => {
@@ -71,6 +71,29 @@ const MappingMatrix = () => {
         } catch (error) {
             console.error("Save error", error);
             toast.error("Failed to sync mapping rules");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const applyMappings = async () => {
+        setIsSaving(true);
+        try {
+            // Trigger the transformation/logic engine (via API)
+            const res = await fetch('/api/process_transaction/mapping/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mappings })
+            });
+
+            if (res.ok) {
+                toast.success("Mappings applied! Re-run ingestion to see changes.");
+            } else {
+                throw new Error("Mapping engine failed");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to apply mappings.");
         } finally {
             setIsSaving(false);
         }
@@ -175,10 +198,13 @@ const MappingMatrix = () => {
                 {/* Left: Configuration & Structure */}
                 <div className="space-y-6">
                     <Card className="h-full">
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle className="text-sm font-medium flex items-center gap-2">
                                 <Layers className="h-4 w-4 text-primary" /> Mapping Configuration
                             </CardTitle>
+                            <Button size="sm" onClick={applyMappings} disabled={isSaving}>
+                                {isSaving ? "Applying..." : "Apply Mappings"}
+                            </Button>
                         </CardHeader>
                         <CardContent>
                             <Tabs defaultValue="rules">

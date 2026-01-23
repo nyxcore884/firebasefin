@@ -27,7 +27,10 @@ import {
   ThumbsUp,
   ThumbsDown
 } from 'lucide-react';
+
 import { AIBackground } from './AIBackground';
+import GodMode from './GodMode';
+import AudioBriefing from './AudioBriefing';
 import { AppSidebar } from './Sidebar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { Outlet } from 'react-router-dom';
@@ -45,6 +48,55 @@ interface ChatMessage {
 }
 
 // Floating AI Assistant Component
+// HUD Ticker Component
+// HUD Ticker Component
+const HUDTicker = ({ company, period }: { company: string, period: string }) => {
+  const [metrics, setMetrics] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const res = await fetch('/api/process_transaction/metrics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'metrics', company_id: company, period: period })
+        });
+        const data = await res.json();
+        if (data.status === 'success') setMetrics(data.metrics);
+      } catch (e) { console.error("HUD Fetch Error", e); }
+    };
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 30000); // Poll every 30s
+    return () => clearInterval(interval);
+  }, [company, period]);
+
+  if (!metrics) return <div className="h-10 px-6 text-xs text-muted-foreground flex items-center">Loading live metrics...</div>;
+
+  return (
+    <div className="flex h-10 items-center justify-between px-6">
+      <div className="flex items-center gap-6 text-xs font-mono tracking-wide overflow-hidden whitespace-nowrap mask-linear-fade">
+        <div className="flex items-center gap-2 text-emerald-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          REV: ₾{metrics.revenue?.toLocaleString()}
+        </div>
+        <div className="flex items-center gap-2 text-red-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+          BURN: ₾{metrics.burn_rate?.toLocaleString()}
+        </div>
+        <div className="flex items-center gap-2 text-blue-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+          RUNWAY: {metrics.cash_runway} Mo
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+        <span>Verified by Engine</span>
+        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+      </div>
+    </div>
+  );
+};
+
 const FloatingAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -138,7 +190,7 @@ const FloatingAssistant = () => {
                 <BrainCircuit className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h4 className="text-sm font-semibold">CFO Assistant</h4>
+                <h4 className="text-sm font-semibold">AI Assistant MURTAZI</h4>
                 <p className="text-[10px] text-muted-foreground">Cognitive Engine v2</p>
               </div>
             </div>
@@ -220,7 +272,7 @@ const FloatingAssistant = () => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                placeholder="Ask your CFO Assistant..."
+                placeholder="Ask MURTAZI..."
                 disabled={loading}
               />
               <Button type="submit" size="icon" className="h-8 w-8 rounded-lg" disabled={loading || !input.trim()}>
@@ -406,16 +458,26 @@ export const Shell = () => {
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full ring-1 ring-background" />
               </Button>
             </div>
+            {/* Audio Briefing Integration in Header Context */}
+            <div className="hidden lg:block ml-4">
+              <AudioBriefing />
+            </div>
           </header>
+
+          {/* Sticky HUD (Heads-Up Display) Ticker */}
+          <div className="sticky top-16 z-30 w-full backdrop-blur-xl bg-slate-950/80 border-b border-white/10 animate-in slide-in-from-top-4 duration-500">
+            <HUDTicker company={selectedCompany} period={selectedPeriod} />
+          </div>
 
           <main className="flex-1 overflow-y-auto p-6 lg:p-8 relative">
             <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both">
               <Outlet />
             </div>
             <FloatingAssistant />
+            <GodMode />
           </main>
         </div>
-      </div>
-    </SidebarProvider>
+      </div >
+    </SidebarProvider >
   );
 };

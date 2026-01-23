@@ -1,6 +1,6 @@
-functions-framework==3.*
-flask==3.*
 firebase-functions
 firebase-admin
-google-cloud-aiplatform
+flask
 markdown
+requests
+functions-framework==3.*

@@ -161,7 +161,8 @@ export default function StorageManager({ onIngestionSuccess, className }: Storag
         }, 800);
 
         try {
-            const API_URL = "http://127.0.0.1:5001/studio-9381016045-4d625/us-central1/ingest_data";
+            // Use the Firebase Hosting rewrite to call the production endpoint
+            const API_URL = "/api/ingest";
 
             const response = await fetch(API_URL, {
                 method: 'POST',
@@ -386,7 +387,7 @@ export default function StorageManager({ onIngestionSuccess, className }: Storag
                                             </div>
                                             <div className="bg-background/50 p-3 rounded-lg border border-border/50">
                                                 <p className="text-xs text-muted-foreground uppercase">Rows / Entities</p>
-                                                <p className="text-xl font-bold font-mono">{lastResult?.rows_processed} <span className="text-xs font-normal text-muted-foreground">/ {lastResult?.validation_summary.mapped_companies}</span></p>
+                                                <p className="text-xl font-bold font-mono">{lastResult?.rows_processed} <span className="text-xs font-normal text-muted-foreground">/ {lastResult?.validation_summary?.mapped_companies || 0}</span></p>
                                             </div>
                                         </div>
 

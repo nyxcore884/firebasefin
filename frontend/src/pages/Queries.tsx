@@ -17,7 +17,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -60,7 +60,7 @@ interface QueryResult {
   chartData?: { name: string; value: number; status?: string }[];
 }
 
-const COLORS = ['#22c55e', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6'];
+
 
 const Queries = () => {
   const [queryText, setQueryText] = useState('');
@@ -77,7 +77,7 @@ const Queries = () => {
     setLoading(true);
     try {
       // Connect to AI Query backend
-      const res = await fetch('http://127.0.0.1:5001/firebasefin-main/us-central1/process_transaction/ai-query', {
+      const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: queryText })

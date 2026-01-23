@@ -1,4 +1,4 @@
-functions-framework
-google-cloud-pubsub
-google-cloud-aiplatform
-google-cloud-firestore
+firebase-functions==0.4.0
+firebase-admin==6.2.0
+google-cloud-firestore==2.13.1
+google-cloud-pubsub==2.18.4

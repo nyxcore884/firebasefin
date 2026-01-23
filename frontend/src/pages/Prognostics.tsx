@@ -10,7 +10,6 @@ import {
 import {
   TrendingUp,
   BrainCircuit,
-  Sparkles,
   AlertCircle,
   Calendar as CalendarIcon,
   Download,
@@ -257,17 +256,22 @@ const Prognostics = () => {
   const [company, setCompany] = React.useState<string>("Globex Corp");
   const [isLive, setIsLive] = React.useState(false);
   const [forecastData, setForecastData] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(false);
+  const [, setLoading] = React.useState(false);
 
   React.useEffect(() => {
     const fetchForecast = async () => {
       setLoading(true);
       try {
-        // Using emulator URL for dev
-        const url = new URL('http://127.0.0.1:5001/firebasefin-main/us-central1/process_transaction/forecast');
-        if (company) url.searchParams.append('company_id', company);
+        const url = '/api/prognostics';
 
-        const res = await fetch(url.toString());
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            company_id: company,
+            assumptions: {}
+          })
+        });
         if (res.ok) {
           const data = await res.json();
           setForecastData(data);

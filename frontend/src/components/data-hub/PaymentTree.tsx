@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronRight, ChevronDown, CreditCard, ShieldCheck, Hash } from 'lucide-react';
+import { ChevronRight, CreditCard, ShieldCheck, Hash } from 'lucide-react';
 import { PaymentCategory } from '../../types/structure';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
