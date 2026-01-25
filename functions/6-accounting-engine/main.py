@@ -62,7 +62,10 @@ def generate_ledger_entries_from_normalized(norm_doc, doc_id):
     amount = float(norm_doc.get('amount') or 0)
     gl_account = str(norm_doc.get('gl_account') or norm_doc.get('account_code') or '6100')
     currency = norm_doc.get('currency', 'GEL')
-    entity_id = norm_doc.get('entity_id', 'SOCAR_GEO_GAS_001')
+    
+    # Use metadata propagated from transformation layer
+    company_id = norm_doc.get('company_id', 'SOCAR_GEO_GAS_001')
+    period = norm_doc.get('period', 'UNKNOWN')
     
     entries = []
     if gl_account.startswith('4'):
@@ -74,7 +77,8 @@ def generate_ledger_entries_from_normalized(norm_doc, doc_id):
 
     for e in entries:
         e.update({
-            'entity_id': entity_id,
+            'company_id': company_id,
+            'period': period,
             'currency': currency,
             'source_row_id': doc_id,
             'posting_date': posting_date,
@@ -120,9 +124,10 @@ def accounting_handler(event: pubsub_fn.CloudEvent) -> None:
                 bq_entry = {**e}
                 bq_entry['processed_at'] = datetime.datetime.now().isoformat()
                 # Rename for BQ schema compatibility with dashboard
-                bq_entry['transactionDate'] = e['posting_date']
-                bq_entry['itemCode'] = e['entity_id']
-                bq_entry['accountId'] = e['account_id']
+                bq_entry['transactionDate'] = e.get('posting_date')
+                bq_entry['company_id'] = e.get('company_id')
+                bq_entry['period'] = e.get('period')
+                bq_entry['accountId'] = e.get('account_id')
                 all_ledger_entries.append(bq_entry)
 
                 commit_count += 1

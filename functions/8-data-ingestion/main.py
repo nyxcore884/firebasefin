@@ -61,21 +61,27 @@ def persist_log(file_id, filename, checksum, size, status, meta=None):
 def ingest_data(req: https_fn.Request) -> https_fn.Response:
     """
     P1.2: Hardened Ingestion Layer
-    - Streams large files to /tmp.
+    - Streams large files from GCS or Request.
+    - Extracts context metadata (Company, Dept, Period).
     - Uses SHA-256 for strict idempotency.
-    - Implements structured logging.
     """
     temp_path = f"/tmp/{uuid.uuid4().hex}"
     file_id = "pending"
     try:
         source_profile = "Generic_Financial_v1"
         user_id = "anonymous"
+        company_id = "UNKNOWN"
+        department = "UNKNOWN"
+        period = "UNKNOWN"
 
-        # 1. Capture Payload
+        # 1. Capture Payload & Header Context
         json_data = req.get_json(silent=True)
         if json_data:
             user_id = json_data.get('userId', user_id)
             source_profile = json_data.get('source_profile', source_profile)
+            company_id = json_data.get('companyId', company_id)
+            department = json_data.get('department', department)
+            period = json_data.get('period', period)
 
         # 2. Stream to /tmp (P1.2)
         if json_data and 'storagePath' in json_data:
@@ -87,9 +93,16 @@ def ingest_data(req: https_fn.Request) -> https_fn.Response:
             
             storage_client = gcs_storage.Client()
             bucket = storage_client.bucket(bucket_name)
-           
             blob = bucket.blob(storage_path)
             blob.download_to_filename(temp_path)
+            
+            # Extract metadata set by UI during upload
+            if blob.metadata:
+                company_id = blob.metadata.get('company_id', company_id)
+                department = blob.metadata.get('department', department)
+                period = blob.metadata.get('period', period)
+                user_id = blob.metadata.get('uploaded_by', user_id)
+                
         elif 'file' in req.files:
             file_wrapper = req.files['file']
             filename = secure_filename(file_wrapper.filename)
@@ -113,16 +126,21 @@ def ingest_data(req: https_fn.Request) -> https_fn.Response:
                 }), status=200)
 
         file_id = f"f_{uuid.uuid4().hex[:12]}"
-        # Update Logger with real file_id
         current_logger = get_logger(file_id)
-        current_logger.info(f"Starting ingestion for {filename}")
+        current_logger.info(f"Starting ingestion: {filename} for {company_id} ({period})")
 
-        persist_log(file_id, filename, checksum, size_bytes, 'PROCESSING', {'user_id': user_id, 'source_profile': source_profile})
+        metadata_payload = {
+            'user_id': user_id, 
+            'source_profile': source_profile,
+            'company_id': company_id,
+            'department': department,
+            'period': period
+        }
+        persist_log(file_id, filename, checksum, size_bytes, 'PROCESSING', metadata_payload)
 
-        # 4. Parsing (P1.2: Robust Chunked Reading)
+        # 4. Parsing
         raw_rows = []
         if filename.lower().endswith('.csv'):
-            # Chunking could be added if files are > 500MB, for now read_csv on disk is efficient
             df = pd.read_csv(temp_path, dtype=str)
             raw_rows = df.to_dict(orient='records')
         elif filename.lower().endswith(('.xlsx', '.xls')):
@@ -136,7 +154,7 @@ def ingest_data(req: https_fn.Request) -> https_fn.Response:
         else:
             raw_rows = [{"type": "binary", "note": "unsupported_format_scanned"}]
 
-        # 5. Batch Persistence
+        # 5. Batch Persistence with Governance Context
         batch = db.batch()
         raw_ref = db.collection('raw_rows')
         for i, row in enumerate(raw_rows):
@@ -145,6 +163,8 @@ def ingest_data(req: https_fn.Request) -> https_fn.Response:
                 'file_id': file_id,
                 'row_index': i,
                 'source_profile': source_profile,
+                'company_id': company_id,
+                'period': period,
                 'raw': row,
                 'ingested_at': firestore.SERVER_TIMESTAMP
             })
@@ -154,13 +174,19 @@ def ingest_data(req: https_fn.Request) -> https_fn.Response:
         batch.commit()
 
         # 6. Finalize & Notify
-        persist_log(file_id, filename, checksum, size_bytes, 'INGESTED', {'row_count': len(raw_rows)})
+        metadata_payload['row_count'] = len(raw_rows)
+        persist_log(file_id, filename, checksum, size_bytes, 'INGESTED', metadata_payload)
         
         topic_path = publisher.topic_path(PROJECT_ID, RAW_ROWS_TOPIC)
-        publisher.publish(topic_path, json.dumps({'file_id': file_id, 'source_profile': source_profile}).encode('utf-8'))
+        publisher.publish(topic_path, json.dumps({
+            'file_id': file_id, 
+            'source_profile': source_profile,
+            'company_id': company_id,
+            'period': period
+        }).encode('utf-8'))
 
-        current_logger.info(f"Ingestion complete: {len(raw_rows)} rows stored.")
-        return https_fn.Response(json.dumps({"file_id": file_id, "rows": len(raw_rows)}), status=201)
+        current_logger.info(f"Ingestion complete: {len(raw_rows)} rows stored for {company_id}.")
+        return https_fn.Response(json.dumps({"file_id": file_id, "rows": len(raw_rows), "entity": company_id}), status=201)
 
     except Exception as e:
         logger.error(f"Ingestion Error: {str(e)}")

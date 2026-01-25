@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { db, storage } from '@/lib/firebase';
 import { collection, onSnapshot, setDoc, serverTimestamp, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { useAppState } from '@/hooks/use-app-state';
 
 export interface DatasetMetadata {
     id: string;
@@ -21,6 +22,8 @@ export interface DatasetMetadata {
     tags: string[];
     lineage: string[];
     type: string;
+    company_id?: string;
+    period?: string;
     quality_status?: Array<{ rule: string; passed: boolean; timestamp: number }>;
     file_metadata?: {
         original_name: string;
@@ -32,8 +35,10 @@ export interface DatasetMetadata {
 }
 
 export default function DatasetRegistry() {
+    const { selectedCompany, selectedPeriod } = useAppState();
     const [datasets, setDatasets] = useState<DatasetMetadata[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const [filterCompany, setFilterCompany] = useState(selectedCompany);
     const [isRegistering, setIsRegistering] = useState(false);
     const [loading, setLoading] = useState(false);
     const [newName, setNewName] = useState("");
@@ -74,8 +79,13 @@ export default function DatasetRegistry() {
 
             if (uploadFile) {
                 storageName = `${uploadFile.name.split('.')[0]}-${Date.now()}.${uploadFile.name.split('.').pop()}`;
-                const storageRef = ref(storage, `ingestion/${storageName}`);
-                const uploadTask = uploadBytesResumable(storageRef, uploadFile);
+                const storageRef = ref(storage, `ingestion/${selectedCompany}/${storageName}`);
+                const uploadTask = uploadBytesResumable(storageRef, uploadFile, {
+                    customMetadata: {
+                        company_id: selectedCompany,
+                        period: selectedPeriod || 'UNKNOWN'
+                    }
+                });
                 await new Promise<void>((resolve, reject) => {
                     uploadTask.on('state_changed',
                         (snapshot) => setUploadProgress((snapshot.bytesTransferred / snapshot.totalBytes) * 100),
@@ -95,6 +105,8 @@ export default function DatasetRegistry() {
                 name: newName,
                 description: newDesc,
                 owner: newOwner,
+                company_id: selectedCompany,
+                period: selectedPeriod,
                 tags: newTags.split(',').map(t => t.trim()).filter(Boolean),
                 lineage: uploadFile ? ['Direct_Upload'] : ['Manual_entry'],
                 type: uploadFile ? 'ingested_file' : 'manual_entry',
@@ -104,7 +116,7 @@ export default function DatasetRegistry() {
                     size: uploadFile.size,
                     mime_type: uploadFile.type,
                     download_url: downloadUrl,
-                    storage_path: `ingestion/${storageName}`
+                    storage_path: `ingestion/${selectedCompany}/${storageName}`
                 } : null
             };
 
@@ -113,7 +125,12 @@ export default function DatasetRegistry() {
                 fetch('/api/ingest', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ storagePath: `ingestion/${storageName}`, bucket: bucketName })
+                    body: JSON.stringify({
+                        storagePath: `ingestion/${selectedCompany}/${storageName}`,
+                        bucket: bucketName,
+                        companyId: selectedCompany,
+                        period: selectedPeriod
+                    })
                 }).then(res => res.ok ? toast.success("AI Ingestion Started") : null);
             }
             toast.success("Dataset Registered");
@@ -126,18 +143,33 @@ export default function DatasetRegistry() {
         }
     };
 
-    const filteredDatasets = datasets.filter(d =>
-        d.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.tags?.some(t => t.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filteredDatasets = datasets.filter(d => {
+        const matchesSearch = d.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            d.tags?.some(t => t.toLowerCase().includes(searchTerm.toLowerCase()));
+        const matchesCompany = !filterCompany || d.company_id === filterCompany;
+        return matchesSearch && matchesCompany;
+    });
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-            <Card className="lg:col-span-1 h-fit">
-                <CardHeader><CardTitle>Catalog Filters</CardTitle></CardHeader>
+            <Card className="lg:col-span-1 h-fit border-primary/10 bg-card/50 backdrop-blur-xl">
+                <CardHeader>
+                    <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                        <Database className="h-4 w-4 text-primary" /> Data Catalog
+                    </CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="relative"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input type="search" placeholder="Search..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
-                    <Button className="w-full mt-4" onClick={() => setIsRegistering(!isRegistering)}><Plus className="mr-2 h-4 w-4" /> Register New</Button>
+                    <div className="space-y-1.5">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Search Registry</Label>
+                        <div className="relative"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input type="search" placeholder="Search datasets..." className="pl-8 text-xs" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Entity Filter</Label>
+                        <Input value={filterCompany} onChange={(e) => setFilterCompany(e.target.value)} className="text-xs font-mono" placeholder="Filter by Company ID" />
+                    </div>
+                    <Button className="w-full mt-4 bg-primary shadow-lg shadow-primary/20" onClick={() => setIsRegistering(!isRegistering)}>
+                        <Plus className="mr-2 h-4 w-4" /> Register New Dataset
+                    </Button>
                 </CardContent>
             </Card>
 
@@ -168,9 +200,18 @@ export default function DatasetRegistry() {
                                 </CardHeader>
                                 <CardContent>
                                     <p className="text-sm text-muted-foreground">{dataset.description}</p>
-                                    <div className="flex gap-6 pt-4 border-t mt-4">
-                                        <div className="flex-1"><GitBranch className="h-3 w-3 inline mr-1" /> {dataset.lineage?.join(" → ")}</div>
-                                        <div className="flex-1"><ShieldCheck className="h-3 w-3 inline mr-1" /> Healthy</div>
+                                    <div className="grid grid-cols-2 gap-4 pt-4 border-t mt-4">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] uppercase font-black opacity-50">Lineage</p>
+                                            <div className="text-[10px] font-mono"><GitBranch className="h-3 w-3 inline mr-1" /> {dataset.lineage?.join(" → ")}</div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] uppercase font-black opacity-50">Entity Context</p>
+                                            <div className="text-[10px] font-mono flex items-center gap-2">
+                                                <Badge variant="outline" className="text-[8px] h-4">{dataset.company_id || 'Global'}</Badge>
+                                                <span className="opacity-50">{dataset.period}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>

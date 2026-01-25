@@ -68,7 +68,7 @@ def match_contextual_rule(raw_field, raw_value, row_context, mapping_index):
         return r
     return None
 
-def normalize_row(raw_row, rules_bundle):
+def normalize_row(raw_row, rules_bundle, company_id="UNKNOWN", period="UNKNOWN"):
     """
     Apply normalization with Business Rule Overrides.
     """
@@ -80,6 +80,8 @@ def normalize_row(raw_row, rules_bundle):
     normalized = {
         'source_file_id': raw_row.get('file_id'),
         'source_row_index': raw_row.get('row_index'),
+        'company_id': company_id,
+        'period': period,
         'date': '',
         'amount': 0.0,
         'currency': 'GEL',
@@ -100,8 +102,6 @@ def normalize_row(raw_row, rules_bundle):
 
     # 1. Contextual Global Rules (Highest Priority)
     for field in targets:
-        # Check if the field itself is used as a trigger for a mapping (usually 'budget_article')
-        # Here we check 'description' or the field name itself
         rule = match_contextual_rule('description', raw.get('description', ''), row_context, mapping_index)
         if not rule:
             rule = match_contextual_rule('budget_article', raw.get('budget_article', ''), row_context, mapping_index)
@@ -160,10 +160,12 @@ def transform_raw_rows(event: pubsub_fn.CloudEvent) -> None:
         
         file_id = payload.get('file_id')
         source_profile = payload.get('source_profile')
+        company_id = payload.get('company_id', 'UNKNOWN')
+        period = payload.get('period', 'UNKNOWN')
         
         if not file_id: return
 
-        logger.info(f"Mapping Engine: Transforming file {file_id}")
+        logger.info(f"Mapping Engine: Transforming file {file_id} for {company_id}")
         
         # Load Mapping Rules
         try:
@@ -186,7 +188,7 @@ def transform_raw_rows(event: pubsub_fn.CloudEvent) -> None:
         written = 0
         for doc in raw_rows_ref:
             raw_data = doc.to_dict()
-            normalized_data = normalize_row(raw_data, rules)
+            normalized_data = normalize_row(raw_data, rules, company_id=company_id, period=period)
             
             row_idx = raw_data.get('row_index', written)
             norm_doc_id = f"n_{file_id.replace('f_', '')}_{row_idx}"
@@ -209,6 +211,8 @@ def transform_raw_rows(event: pubsub_fn.CloudEvent) -> None:
         publisher.publish(topic_path, json.dumps({
             'file_id': file_id,
             'source_profile': source_profile,
+            'company_id': company_id,
+            'period': period,
             'row_count': written
         }).encode('utf-8'))
 
