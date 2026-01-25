@@ -1,82 +1,46 @@
-dataset:
-  name: procurement_sog
-  version: v1
-  type: management_summary
-  currency: GEL
-  periodicity: monthly
-  accounting_basis: accrual
-  source_system: procurement
+version: "1.0"
+name: "procurement_sog_v1"
+description: "Procurement mapping rules for SOCAR Georgia Gas - Budget templates"
+mappings:
+  - name: "vendor_name"
+    raw_patterns:
+      - "vendor"
+      - "supplier"
+      - "vendor_name"
+    target_field: "vendor"
+  - name: "invoice_date"
+    raw_patterns:
+      - "date"
+      - "inv_date"
+      - "invoice_date"
+    target_field: "date"
+    type: "date"
+    parse: "iso"
+  - name: "grand_total"
+    raw_patterns:
+      - "grand total"
+      - "total_amount"
+      - "amount_due"
+    target_field: "amount"
+    currency: "GEL"
+  - name: "gl_account"
+    raw_patterns:
+      - "gl"
+      - "gl_account"
+      - "account"
+    target_field: "gl_account"
 
-dimensions:
-  reporting_period:
-    source:
-      row: 7
-      column: "Unnamed: 4"
-    type: month
-    value_transform: month_name_to_date
+account_mappings:
+  "5000":
+    category: "Expenses"
+    sub_category: "Procurement"
+  "4*":
+    category: "Revenue"
+    sub_category: "Other Revenue"
+  "1*":
+    category: "Assets"
+    sub_category: "Current Assets"
 
-  budget_article:
-    source_column: "Unnamed: 9"
-    type: string
-    role: cost_category
-    required: true
-
-measures:
-  actual_month:
-    source_column: "Unnamed: 11"
-    type: money
-    sign: debit
-
-  budget_month:
-    source_column: "Unnamed: 12"
-    type: money
-    sign: debit
-
-  variance_month:
-    source_column: "Unnamed: 13"
-    type: money
-    derived: true
-
-  variance_pct:
-    source_column: "Unnamed: 14"
-    type: percentage
-    derived: true
-
-  actual_ytd:
-    source_column: "Unnamed: 15"
-    type: money
-    sign: debit
-
-  budget_ytd:
-    source_column: "Unnamed: 16"
-    type: money
-    sign: debit
-
-  variance_ytd:
-    source_column: "Unnamed: 17"
-    type: money
-    derived: true
-
-  variance_ytd_pct:
-    source_column: "Unnamed: 18"
-    type: percentage
-    derived: true
-
-rules:
-  exclude_rows:
-    - budget_article: "Grand Total"
-
-  account_mapping:
-    Audit Cost: 6101
-    Household Materials: 6102
-    Representative Expenses: 6103
-    Fuel: 6104
-    Service: 6105
-    Property Insurance Cost: 6106
-    Stationary Goods: 6107
-    Other Operating Expenses: 6199
-
-validation:
-  - actual_month >= 0
-  - budget_month >= 0
-  - variance_month == actual_month - budget_month
+fallback:
+  category: "Unmapped"
+  sub_category: "General"

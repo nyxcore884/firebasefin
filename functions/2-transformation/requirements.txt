@@ -1,7 +1,8 @@
 functions-framework
 google-cloud-firestore
 google-cloud-storage
+google-cloud-pubsub
+PyYAML
 pandas
-
 firebase-functions
 firebase-admin

@@ -1,22 +1,17 @@
 functions-framework==3.*
 flask==3.0.0
 google-cloud-firestore
+google-cloud-pubsub
 pandas
 scikit-learn
 prophet
 flask-cors
 google-cloud-aiplatform
 great-expectations
-
 firebase-functions
 firebase-admin
-<<<<<<< Updated upstream
-=======
-google-cloud-firestore
 google-cloud-storage
 numpy
 scipy
 python-dateutil
-pandas
 openpyxl
->>>>>>> Stashed changes

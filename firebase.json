@@ -1,11 +1,6 @@
 {
   "functions": [
     {
-      "source": "functions/1-ingestion",
-      "codebase": "ingestion",
-      "runtime": "python311"
-    },
-    {
       "source": "functions/2-transformation",
       "codebase": "transformation",
       "runtime": "python311"
@@ -37,6 +32,11 @@
     {
       "source": "functions/6-prognosis-engine",
       "codebase": "prognosis-engine",
+      "runtime": "python311"
+    },
+    {
+      "source": "functions/6-accounting-engine",
+      "codebase": "accounting-engine",
       "runtime": "python311"
     },
     {

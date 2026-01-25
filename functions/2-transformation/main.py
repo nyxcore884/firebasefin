@@ -1,218 +1,164 @@
-<<<<<<< Updated upstream
-import functions_framework
-import base64
-
-# Lazy globals
-db = None
-storage_client = None
-
-def get_clients():
-    global db, storage_client
-    from google.cloud import firestore, storage
-    
-    if db is None:
-        db = firestore.Client()
-    if storage_client is None:
-        storage_client = storage.Client()
-    return db, storage_client
-
-# This function is triggered by a message published to a Pub/Sub topic.
-@functions_framework.cloud_event
-def transform_and_load_data(cloud_event):
-    """
-    It reads the file, detects its type, transforms the data into a clean schema,
-    and loads it into the appropriate Firestore collection.
-    """
-    import pandas as pd
-    from io import StringIO
-    
-    # The message data is base64-encoded
-    message_data = base64.b64decode(cloud_event.data["message"]["data"]).decode('utf-8')
-    bucket_name, file_name = message_data.split('/', 1)
-
-    print(f"[TRANSFORMATION] Received request to process file: {file_name} from bucket: {bucket_name}")
-
-    try:
-        firestore_db, gcs_client = get_clients()
-        bucket = gcs_client.bucket(bucket_name)
-        blob = bucket.blob(file_name)
-        file_contents = blob.download_as_string().decode('utf-8')
-        csv_data = StringIO(file_contents)
-        df = pd.read_csv(csv_data)
-
-        # --- Routing Logic --- #
-        # Based on file type, route to the specific processing function
-        if "july sgg" in file_name.lower():
-            print(f"[TRANSFORMATION] Routing {file_name} to 'July SGG' processor.")
-            process_july_sgg(df)
-        # Add other routes here, e.g.:
-        # elif "budget" in file_name.lower():
-        #     process_budget_file(df)
-        # elif "loans" in file_name.lower():
-        #     process_loans_file(df)
-        else:
-            print(f"[TRANSFORMATION-WARN] No specific transformer for {file_name}. Skipping.")
-
-    except Exception as e:
-        print(f"[TRANSFORMATION-ERROR] Failed to process {file_name}. Error: {e}")
-        raise
-
-def process_july_sgg(df):
-    """
-    Transforms the 'July SGG' data and loads it into the 'transactions' collection in Firestore.
-    """
-    print(f"[TRANSFORMATION] Processing {len(df)} rows from the SGG file.")
-    
-    # Rename columns to match the Firestore schema
-    df.rename(columns={
-        'transactionNumber': 'transaction_id',
-        'amountDebitCurrency': 'amount'
-    }, inplace=True)
-
-    # Ensure date is in a consistent format (optional, but good practice)
-    df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
-    
-    # Select only the columns we want to save
-    df_to_load = df[['transaction_id', 'date', 'amount']]
-
-    # --- Firestore Load --- #
-    # Use a batch writer for efficient writes
-    firestore_db, _ = get_clients()
-    batch = firestore_db.batch()
-    collection_ref = firestore_db.collection('sgg_transactions')
-    
-    for index, row in df_to_load.iterrows():
-        # Create a unique document ID, for example, using the transaction_id
-        doc_ref = collection_ref.document(str(row['transaction_id']))
-        batch.set(doc_ref, row.to_dict())
-        
-        # Commit the batch every 500 documents to avoid exceeding limits
-        if (index + 1) % 500 == 0:
-            print(f"[TRANSFORMATION] Committing batch of 500 documents...")
-            batch.commit()
-            batch = firestore_db.batch() # Start a new batch
-
-    # Commit any remaining documents
-    batch.commit()
-    print(f"[TRANSFORMATION] Successfully loaded {len(df_to_load)} documents into 'sgg_transactions' collection.")
-=======
 import os
+import json
 import logging
-from firebase_functions import https_fn, options
-from firebase_admin import firestore, initialize_app
+import base64
+import sys
+from firebase_functions import pubsub_fn, options
+from google.cloud import firestore, pubsub_v1
+import firebase_admin
+from firebase_admin import initialize_app
 
+# Setup path for shared modules
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+try:
+    from shared.schema_loader import get_combined_mapping_rules
+except ImportError:
+    # Handle cloud environment where 'shared' is copied into the function root
+    try:
+        from shared.schema_loader import get_combined_mapping_rules
+    except:
+        pass
+
+# Initialize Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Global lazy initialization
-_db = None
+# Initialize Firebase Admin
+if not firebase_admin._apps:
+    initialize_app()
 
-def get_db():
-    global _db
-    if _db is None:
-        from firebase_admin import firestore, initialize_app
-        import firebase_admin
-        if not firebase_admin._apps:
-            initialize_app()
-        _db = firestore.client()
-    return _db
+db = firestore.Client()
+publisher = pubsub_v1.PublisherClient()
+PROJECT_ID = os.environ.get('GCP_PROJECT') or "firebasefin"
+NORMALIZED_TOPIC = os.environ.get('NORMALIZED_ROWS_TOPIC', 'normalized-rows-created')
 
-@https_fn.on_request(
-    timeout_sec=540,
-    memory=options.MemoryOption.GB_1
-)
-def run_transformation(req: https_fn.Request) -> https_fn.Response:
+# Cache for schemas to minimize I/O
+SCHEMA_CACHE = {}
+
+def normalize_row(raw_row, rules):
     """
-    Runs deterministic transformation for a locked dataset version.
+    Apply normalization rules based on source_profile and dynamic overrides.
+    Maintains a flat structure for downstream Accounting Engine compatibility.
     """
-    from firebase_admin import firestore
-    # Import Transformers inside to avoid top-level cost
-    from procurement_sog_transformer import normalize_row
+    raw = raw_row.get('raw', {})
+    schema = rules.get('active_schema')
+    mappings = rules.get('combined_mappings', {})
+    
+    normalized = {
+        'source_file_id': raw_row.get('file_id'),
+        'source_row_index': raw_row.get('row_index'),
+        'date': '',
+        'amount': 0.0,
+        'currency': 'GEL',
+        'description': '',
+        'category_tag': 'General'
+    }
+    
+    # 1. Field Mapping with pattern match
+    mapped_keys = set()
+    targets = ['date', 'amount', 'currency', 'description', 'gl_account']
+    
+    for k, v in raw.items():
+        lk = str(k).lower()
+        if lk in mappings:
+            target = mappings[lk]
+            if target in targets:
+                normalized[target] = v
+                mapped_keys.add(k)
+                
+    # 2. Preserve Unmapped Fields (Patch 004 requirement)
+    for k, v in raw.items():
+        if k not in mapped_keys:
+            normalized[f"original_{k}"] = v
 
-    dataset_id = req.args.get("dataset_id")
-    actor = req.headers.get("X-User", "system")
+    # 3. Fallback to Generic Heuristics
+    if not normalized['date']:
+        normalized['date'] = raw.get('Date', raw.get('date', ''))
+    if not normalized['amount'] or normalized['amount'] == 0:
+        normalized['amount'] = raw.get('Amount', raw.get('amount', '0'))
+    if not normalized['description']:
+        normalized['description'] = raw.get('Description', raw.get('description', ''))
 
-    if not dataset_id:
-        return https_fn.Response("Missing dataset_id", status=400)
-
-    # 1️⃣ Resolve dataset + version
-    db = get_db()
-    dataset_ref = db.collection("dataset_registry").document(dataset_id)
-    dataset = dataset_ref.get().to_dict()
-
-    if not dataset:
-        return https_fn.Response("Dataset not found", status=404)
-
-    if dataset.get("locked"):
-        return https_fn.Response("Dataset is locked", status=403)
-
-    dataset_version = dataset["current_version"]
-
-    logger.info(f"Transforming {dataset_id} v{dataset_version}")
-
+    # 4. Categorization (from specialized Schema)
+    if schema:
+        gl = str(normalized.get('gl_account', ''))
+        acc_mappings = schema.get('account_mappings', {})
+        for code_pattern, rules_set in acc_mappings.items():
+            if code_pattern == gl or (code_pattern.endswith('*') and gl.startswith(code_pattern[:-1])):
+                normalized['category_tag'] = f"{rules_set.get('category')} - {rules_set.get('sub_category')}"
+                break
+    
+    # Clean-up
     try:
-        # 2️⃣ Read RAW LEDGER (VERSIONED)
-        raw_stream = (
-            db.collection("raw_ledger")
-            .where(filter=firestore.FieldFilter("dataset_id", "==", dataset_id))
-            .where(filter=firestore.FieldFilter("dataset_version", "==", dataset_version))
-            .stream()
-        )
+        normalized['amount'] = float(str(normalized['amount']).replace(',', ''))
+    except:
+        normalized['amount'] = 0.0
+        
+    return normalized
 
+@pubsub_fn.on_message_published(topic="raw-rows-created", region="us-central1")
+def transform_raw_rows(event: pubsub_fn.CloudEvent) -> None:
+    """
+    Subscribes to raw-rows-created, reads raw_rows, performs normalization,
+    and writes to normalized_rows.
+    """
+    try:
+        message_data = base64.b64decode(event.data.message.data).decode('utf-8')
+        payload = json.loads(message_data)
+        
+        file_id = payload.get('file_id')
+        source_profile = payload.get('source_profile')
+        
+        if not file_id: return
+
+        logger.info(f"Mapping Engine: Transforming file {file_id}")
+        
+        # Load Mapping Rules
+        try:
+            rules = get_combined_mapping_rules(source_profile, db)
+            mapping_version = {
+                'profile': source_profile,
+                'dynamic_overrides': rules.get('is_dynamic', False),
+                'timestamp': datetime.datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Failed to load rules: {e}")
+            rules = {"combined_mappings": {}}
+            mapping_version = {'status': 'error', 'profile': source_profile}
+
+        raw_rows_ref = db.collection('raw_rows').where('file_id', '==', file_id).stream()
+        
         batch = db.batch()
-        out = db.collection("fact_financial_summary")
-
-        count = 0
+        normalized_collection = db.collection('normalized_rows')
+        
         written = 0
-
-        for doc in raw_stream:
-            raw = doc.to_dict()
-
-            normalized = normalize_row(
-                raw_row=raw["row"],
-                dataset_id=dataset_id
-            )
-
-            if not normalized:
-                continue
-
-            # 3️⃣ Enforce finance identity
-            normalized.update({
-                "dataset_id": dataset_id,
-                "dataset_version": dataset_version,
-                "entity_id": raw.get("entity_id", "DEFAULT"),
-                "source_row_id": doc.id,
-                "created_at": firestore.SERVER_TIMESTAMP
+        for doc in raw_rows_ref:
+            raw_data = doc.to_dict()
+            normalized_data = normalize_row(raw_data, rules)
+            
+            row_idx = raw_data.get('row_index', written)
+            norm_doc_id = f"n_{file_id.replace('f_', '')}_{row_idx}"
+            
+            batch.set(normalized_collection.document(norm_doc_id), {
+                **normalized_data,
+                'mapping_version': mapping_version,
+                'normalized_at': firestore.SERVER_TIMESTAMP
             })
-
-            batch.set(out.document(), normalized)
+            
             written += 1
-            count += 1
-
-            if count >= 400:
+            if written % 400 == 0:
                 batch.commit()
                 batch = db.batch()
-                count = 0
-
-        if count:
-            batch.commit()
-
-        # 4️⃣ Audit trail (MANDATORY)
-        db.collection("audit_log").add({
-            "event": "TRANSFORMATION_RUN",
-            "dataset_id": dataset_id,
-            "dataset_version": dataset_version,
-            "records_written": written,
-            "actor": actor,
-            "timestamp": firestore.SERVER_TIMESTAMP
-        })
-
-        return https_fn.Response(
-            f"Transformation complete: {written} facts written",
-            status=200
-        )
+        
+        batch.commit()
+        
+        # Emit Step Completion
+        topic_path = publisher.topic_path(PROJECT_ID, NORMALIZED_TOPIC)
+        publisher.publish(topic_path, json.dumps({
+            'file_id': file_id,
+            'source_profile': source_profile,
+            'row_count': written
+        }).encode('utf-8'))
 
     except Exception as e:
-        logger.error("Transformation failed", exc_info=True)
-        return https_fn.Response(str(e), status=500)
->>>>>>> Stashed changes
+        logger.error(f"Mapping Engine Error: {e}", exc_info=True)

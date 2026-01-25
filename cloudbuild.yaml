@@ -1,59 +1,132 @@
-
+options:
+  logging: CLOUD_LOGGING_ONLY
+substitutions:
+  _PROJECT_ID: "studio-9381016045-4d625"
+  _REGION: "us-central1"
+  _ARTIFACT_REGISTRY_LOCATION: "us-central1"
+  _ARTIFACT_REGISTRY_REPO: "artifact-repo"
+  _DUCKDB_IMAGE_NAME: "duckdb-analytics"
+  _DUCKDB_SA: "financewise-app-ser@studio-9381016045-4d625.iam.gserviceaccount.com"
+  _INGEST_SA: "ingestion-sa@studio-9381016045-4d625.iam.gserviceaccount.com"
+  _TRANSFORM_SA: "transformation-sa@studio-9381016045-4d625.iam.gserviceaccount.com"
+  _ACCOUNTING_SA: "accounting-sa@studio-9381016045-4d625.iam.gserviceaccount.com"
+  _FUNCTION_REGION: "us-central1"
+timeout: "1200s"
 steps:
-# 1. Deploy the Data Transformation Function (GCS Trigger)
-- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+# 1. Frontend: install & build
+- name: 'gcr.io/cloud-builders/npm'
+  id: 'install-frontend-deps'
+  entrypoint: 'bash'
   args:
-  - 'gcloud'
-  - 'functions'
-  - 'deploy'
-  - 'data-transformation'
-  - '--source=./functions/data_transformation'
-  - '--runtime=python39'
-  - '--trigger-resource=gs://raw-financial-data-ingestion'
-  - '--trigger-event=google.storage.object.finalize'
-  - '--entry-point=transform_and_load_data'
-  - '--region=us-central1'
-  - '--project=$PROJECT_ID'
-  - '--service-account=firebase-service-account@$PROJECT_ID.iam.gserviceaccount.com'
+    - '-c'
+    - |
+      cd frontend
+      npm ci
 
-# 2. Deploy the Variance Calculation Function (Firestore Trigger)
-- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+- name: 'gcr.io/cloud-builders/npm'
+  id: 'build-frontend'
+  entrypoint: 'bash'
   args:
-  - 'gcloud'
-  - 'functions'
-  - 'deploy'
-  - 'calculate-variance'
-  - '--source=./functions/calculate_variance'
-  - '--runtime=python39'
-  - '--trigger-event=providers/cloud.firestore/eventTypes/document.create'
-  - '--trigger-resource=projects/$PROJECT_ID/databases/(default)/documents/july_sgg_transactions/{transactionId}'
-  - '--entry-point=calculate_variance'
-  - '--region=us-central1'
-  - '--project=$PROJECT_ID'
-  - '--service-account=firebase-service-account@$PROJECT_ID.iam.gserviceaccount.com'
+    - '-c'
+    - |
+      cd frontend
+      npm run build
 
-# 3. Build the container for the Financial Analysis Engine
+# 2. Build DuckDB analytics Docker image
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'gcr.io/$PROJECT_ID/financial-analysis-engine', './financial-analysis-engine']
-
-# 4. Push the container image to Container Registry
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'gcr.io/$PROJECT_ID/financial-analysis-engine']
-
-# 5. Deploy the Financial Analysis Engine to Cloud Run
-- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'docker-build-duckdb'
+  entrypoint: 'bash'
   args:
-  - 'gcloud'
-  - 'run'
-  - 'deploy'
-  - 'financial-analysis-engine'
-  - '--image=gcr.io/$PROJECT_ID/financial-analysis-engine'
-  - '--platform=managed'
-  - '--region=us-central1'
-  - '--allow-unauthenticated'
-  - '--project=$PROJECT_ID'
-  - '--set-env-vars=VERTEX_AI_ENDPOINT=YOUR_VERTEX_AI_ENDPOINT_HERE' # IMPORTANT: Replace with your actual endpoint ID
-  - '--service-account=firebase-service-account@$PROJECT_ID.iam.gserviceaccount.com'
+    - '-c'
+    - |
+      IMAGE="${_ARTIFACT_REGISTRY_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}/${_DUCKDB_IMAGE_NAME}:latest"
+      echo "Building image ${IMAGE}"
+      docker build -t "${IMAGE}" services/duckdb-analytics
+      docker push "${IMAGE}"
+  timeout: '1200s'
+
+# 3. Deploy DuckDB image to Cloud Run
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'deploy-cloud-run-duckdb'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      IMAGE="${_ARTIFACT_REGISTRY_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}/${_DUCKDB_IMAGE_NAME}:latest"
+      gcloud run deploy duckdb-analytics \
+        --image="${IMAGE}" \
+        --region="${_REGION}" \
+        --platform=managed \
+        --service-account="${_DUCKDB_SA}" \
+        --no-allow-unauthenticated \
+        --set-env-vars=PROJECT_ID="${_PROJECT_ID}" \
+        --project="${_PROJECT_ID}"
+
+# 4. Deploy Ingestion Cloud Function (HTTPS)
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'deploy-ingest-function'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      gcloud functions deploy ingest_data \
+        --region=${_FUNCTION_REGION} \
+        --runtime=python311 \
+        --trigger-http \
+        --service-account=${_INGEST_SA} \
+        --entry-point=ingest_data \
+        --memory=1GB \
+        --timeout=300s \
+        --source=functions/8-data-ingestion \
+        --set-env-vars=RAW_ROWS_TOPIC=raw-rows-created,PROJECT_ID=${_PROJECT_ID} \
+        --project=${_PROJECT_ID}
+
+# 5. Sync Shared and Deploy Mapping Engine (Pub/Sub: raw-rows-created)
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'sync-shared-to-transform'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      cp -r shared/ functions/2-transformation/
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'deploy-transform-function'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      gcloud pubsub topics create raw-rows-created --project=${_PROJECT_ID} || true
+      gcloud functions deploy transform_raw_rows \
+        --region=${_FUNCTION_REGION} \
+        --runtime=python311 \
+        --trigger-topic=raw-rows-created \
+        --service-account=${_TRANSFORM_SA} \
+        --entry-point=transform_raw_rows \
+        --memory=512MB \
+        --timeout=300s \
+        --source=functions/2-transformation \
+        --set-env-vars=NORMALIZED_ROWS_TOPIC=normalized-rows-created,PROJECT_ID=${_PROJECT_ID} \
+        --project=${_PROJECT_ID}
+
+# 6. Deploy Accounting Engine (Pub/Sub: normalized-rows-created)
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'deploy-accounting-function'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      gcloud pubsub topics create normalized-rows-created --project=${_PROJECT_ID} || true
+      gcloud functions deploy accounting_handler \
+        --region=${_FUNCTION_REGION} \
+        --runtime=python311 \
+        --trigger-topic=normalized-rows-created \
+        --service-account=${_ACCOUNTING_SA} \
+        --entry-point=accounting_handler \
+        --memory=512MB \
+        --timeout=300s \
+        --source=functions/6-accounting-engine \
+        --set-env-vars=PROJECT_ID=${_PROJECT_ID} \
+        --project=${_PROJECT_ID}
 
 images:
-- 'gcr.io/$PROJECT_ID/financial-analysis-engine'
+  - "${_ARTIFACT_REGISTRY_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}/${_DUCKDB_IMAGE_NAME}:latest"

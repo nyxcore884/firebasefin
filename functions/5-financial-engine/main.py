@@ -1,7 +1,8 @@
 import datetime
 import json
 import logging
-from firebase_functions import https_fn, options
+import base64
+from firebase_functions import https_fn, pubsub_fn, options
 <<<<<<< Updated upstream
 =======
 from google.cloud import firestore
@@ -36,11 +37,7 @@ def get_analyzer():
         analyzer = FinancialAnalyzer()
     return analyzer
 
-def get_mapper():
-    global mapper
-    if mapper is None:
-        mapper = FinancialMapper()
-    return mapper
+# check_period_lock is still valid as it uses 'period_controls'
 
 class FinancialAnalyzer:
     def __init__(self):
@@ -183,87 +180,9 @@ class FinancialAnalyzer:
                 })
         return anomalies
 
-class ComplianceRulesEngine:
-    def validate(self, transaction):
-        errors = []
-        if transaction.get('category', '').startswith('Revenue'):
-            if transaction.get('amount', 0) > 115000: 
-                errors.append("Revenue exceeds 115% of budget")
-        return {'status': 'ok' if not errors else 'error', 'errors': errors}
 
-class FinancialMapper:
-    def __init__(self):
-        from google.cloud import firestore
-        self.db = firestore.Client()
-        self.rules_engine = ComplianceRulesEngine()
-
-    def process_transaction(self, transaction):
-        validation = self.rules_engine.validate(transaction)
-        
-        reconciliation = []
-        if validation['status'] == 'ok':
-             # Store in Firestore
-             self.db.collection('financial_data').add(transaction)
-             # Double Entry Check
-             reconciliation = reconcile_accounts([transaction])
-        
-        return {
-            'status': 'success' if validation['status'] == 'ok' else 'error',
-            'data': transaction,
-            'validation': validation,
-            'reconciliation': reconciliation
-        }
-    
-    def get_all_data(self):
-        docs = self.db.collection('financial_data').limit(100).stream()
-        data = [d.to_dict() for d in docs]
-        
-        if not data:
-            # Fallback Mock Data for Analysis Page Integration
-            return [
-              {'id': 'OPEX-001', 'article': 'Office Supplies', 'budget': 5000, 'actual': 4890, 'variance': 110, 'pct': 2.2, 'status': 'success', 'category': 'Operating Expenses'},
-              {'id': 'OPEX-002', 'article': 'Software Licensing', 'budget': 12000, 'actual': 12500, 'variance': -500, 'pct': -4.1, 'status': 'warning', 'category': 'Operating Expenses'},
-              {'id': 'CAPEX-001', 'article': 'New Laptops', 'budget': 25000, 'actual': 23800, 'variance': 1200, 'pct': 4.8, 'status': 'success', 'category': 'Capital Expenditures'},
-              {'id': 'MKTG-001', 'article': 'Social Media Campaign', 'budget': 8000, 'actual': 9200, 'variance': -1200, 'pct': -15.0, 'status': 'critical', 'category': 'Marketing'},
-              {'id': 'RSRCH-001', 'article': 'Market Research Study', 'budget': 15000, 'actual': 14500, 'variance': 500, 'pct': 3.3, 'status': 'success', 'category': 'Marketing'},
-              {'id': 'HR-001', 'article': 'Employee Training', 'budget': 10000, 'actual': 11000, 'variance': -1000, 'pct': -10.0, 'status': 'warning', 'category': 'Human Resources'},
-              {'id': 'OPEX-003', 'article': 'Travel Expenses', 'budget': 7500, 'actual': 6000, 'variance': 1500, 'pct': 20.0, 'status': 'success', 'category': 'Operating Expenses'},
-            ]
-        return data
-
-    def get_company_transactions(self, company_id, period):
-        """Retrieves and filters transactions from Firestore with a mock fallback."""
-        import pandas as pd
-        import numpy as np
-
-        # For the demo, we use high-quality mock data that matches metrics.py requirements
-        # These fields are required by metrics.calculate_metrics:
-        # id, category, sub_category, entry_type (Debit/Credit), amount_gel
-
-        mock_transactions = [
-            {'id': 'T-001', 'category': 'Assets', 'sub_category': 'Cash', 'entry_type': 'Debit', 'amount_gel': 50000, 'company_id': company_id, 'period': period, 'department': 'Finance Department'},
-            {'id': 'T-002', 'category': 'Liabilities', 'sub_category': 'Accounts Payable', 'entry_type': 'Credit', 'amount_gel': 20000, 'company_id': company_id, 'period': period, 'department': 'Finance Department'},
-            {'id': 'T-003', 'category': 'Revenue', 'sub_category': 'Product Sales', 'entry_type': 'Credit', 'amount_gel': 35000, 'company_id': company_id, 'period': period, 'department': 'Sales Department'},
-            {'id': 'T-004', 'category': 'COGS', 'sub_category': 'Inventory', 'entry_type': 'Debit', 'amount_gel': 15000, 'company_id': company_id, 'period': period, 'department': 'Operations Department'},
-            {'id': 'T-005', 'category': 'Expenses', 'sub_category': 'Depreciation', 'entry_type': 'Debit', 'amount_gel': 2000, 'company_id': company_id, 'period': period, 'department': 'Finance Department'},
-            {'id': 'T-006', 'category': 'Expenses', 'sub_category': 'Interest', 'entry_type': 'Debit', 'amount_gel': 1000, 'company_id': company_id, 'period': period, 'department': 'Finance Department'},
-            {'id': 'T-007', 'category': 'Equity', 'sub_category': 'Retained Earnings', 'entry_type': 'Credit', 'amount_gel': 30000, 'company_id': company_id, 'period': period, 'department': 'Finance Department'},
-        ]
-        
-        # Real Firestore Fetch (attempt)
-        try:
-            docs = self.db.collection('financial_data')\
-                .where('company_id', '==', company_id)\
-                .where('period', '==', period)\
-                .limit(500).stream()
-            real_data = [d.to_dict() for d in docs]
-            if real_data:
-                return pd.DataFrame(real_data)
-        except Exception as e:
-            logger.warning(f"Firestore Fetch Failed (likely missing index): {e}")
-
-        # Fallback to Mock
-        return pd.DataFrame(mock_transactions)
+# Legacy mapper replaced by decentralized pipeline (Mapping Engine -> Accounting Engine)
+# New ledger data lives in 'ledger_entries' collection.
 
 # Removed global instances (managed by getters)
 
@@ -340,22 +259,44 @@ def process_transaction(request: https_fn.Request) -> https_fn.Response:
     
     if action == 'metrics':
         try:
+            import pandas as pd
+            from google.cloud import firestore
+            db = firestore.Client()
             company = data.get('company_id')
-            period = data.get('period')
+            period = data.get('period') # Expecting YYYY-MM
             dept = data.get('department', 'All')
             
             if not company or not period:
                 return jsonify({'error': 'Missing company_id or period'}), 400
 
-            df = mapper.get_company_transactions(company, period)
+            # Query new ledger_entries collection
+            # NEW ARCHITECTURE: Ledger entries are the source of truth for metrics.
+            ledger_ref = db.collection('ledger_entries')
+            # Assuming posting_date starts with period string
+            docs = ledger_ref.where('entity_id', '==', company).where('posting_date', '>=', f"{period}-01").where('posting_date', '<=', f"{period}-31").stream()
+            
+            records = []
+            for doc in docs:
+                entry = doc.to_dict()
+                # Adapt to format expected by metrics.py
+                records.append({
+                    'id': doc.id,
+                    'category': 'Expenses' if entry['account_id'].startswith('6') else ('Revenue' if entry['account_id'].startswith('4') else 'General'),
+                    'sub_category': entry['account_id'],
+                    'entry_type': entry['direction'].capitalize(),
+                    'amount_gel': entry['amount'],
+                    'company_id': entry['entity_id'],
+                    'department': entry.get('department', 'General')
+                })
+
+            df = pd.DataFrame(records)
             
             # Apply Department filter if not 'All'
-            if dept and dept != 'All':
-                import pandas as pd
+            if not df.empty and dept and dept != 'All':
                 df = df[df['department'] == f"{dept} Department"]
 
             from metrics import calculate_metrics
-            result = calculate_metrics(df)
+            result = calculate_metrics(df) if not df.empty else {"total_revenue": 0, "total_expenses": 0, "net_income": 0}
             result['context'] = {'company': company, 'period': period, 'department': dept}
             
             return jsonify({
@@ -384,12 +325,11 @@ def process_transaction(request: https_fn.Request) -> https_fn.Response:
             return jsonify({'error': str(e)}), 500
 
     else:
-        # Default: Process Transaction
-        try:
-            result = mapper.process_transaction(data)
-            return jsonify(result)
-        except Exception as e:
-            return jsonify({"error": str(e)}), 400
+        # Default: Process Transaction (Legacy / Direct Write discouragement)
+        return jsonify({
+            "error": "Direct transaction posting is deprecated. Use the Ingestion Pipeline (/api/ingest).",
+            "status": "deprecated"
+        }), 400
 =======
     """
     CFO-Grade Financial Engine Dispatcher.
@@ -922,3 +862,140 @@ def process_transaction(request: https_fn.Request) -> https_fn.Response:
             headers={"Content-Type": "application/json"}
         )
 >>>>>>> Stashed changes
+
+@pubsub_fn.on_message_published(topic="normalized-rows-created")
+def process_ledger_entries(event: pubsub_fn.CloudEvent) -> None:
+    """
+    Subscribes to normalized-rows-created, reads normalized_rows,
+    generates double-entry ledger records, and persists to ledger_entries.
+    """
+    try:
+        from google.cloud import firestore
+        db = firestore.Client()
+        
+        # Decode Pub/Sub message
+        message_data = base64.b64decode(event.data.message.data).decode('utf-8')
+        payload = json.loads(message_data)
+        
+        file_id = payload.get('file_id')
+        
+        if not file_id:
+            logger.error("Missing file_id in payload")
+            return
+
+        logger.info(f"Accounting Engine: Processing ledger for file {file_id}")
+        
+        # 1. Fetch normalized rows
+        normalized_rows_ref = db.collection('normalized_rows').where('source_file_id', '==', file_id).stream()
+        
+        batch = db.batch()
+        ledger_collection = db.collection('ledger_entries')
+        
+        written = 0
+        total_ledger_entries = 0
+        for doc in normalized_rows_ref:
+            norm_data = doc.to_dict()
+            
+            # 2. Generate Double-Entry Ledger Pairs
+            # ACCOUNTING ENGINE RESPONSIBILITY: This is where Debit/Credit happens.
+            ledger_pairs = generate_double_entry(norm_data)
+            
+            for entry in ledger_pairs:
+                # Traceable doc ID: le_<file_id>_<row_index>_<direction>
+                direction = entry['direction'].lower()
+                row_idx = norm_data.get('source_row_index', written)
+                le_doc_id = f"le_{file_id.replace('f_', '')}_{row_idx}_{direction}"
+                le_doc_ref = ledger_collection.document(le_doc_id)
+                
+                batch.set(le_doc_ref, {
+                    **entry,
+                    'source_row_id': doc.id,
+                    'source_file_id': file_id,
+                    'posted_at': firestore.SERVER_TIMESTAMP
+                })
+                total_ledger_entries += 1
+            
+            written += 1
+            # Firestore batch limit is 500
+            if total_ledger_entries >= 400:
+                batch.commit()
+                batch = db.batch()
+                total_ledger_entries = 0
+        
+        if total_ledger_entries > 0:
+            batch.commit()
+            
+        logger.info(f"Accounting Engine complete: {written} transactions posted for {file_id}")
+
+    except Exception as e:
+        logger.error(f"Accounting Engine Error: {e}", exc_info=True)
+
+def generate_double_entry(norm_row):
+    """
+    Core Double-Entry Logic.
+    Rules:
+    - Revenue -> Debit Accounts Receivable (1200), Credit Revenue (4000)
+    - Expense -> Debit Expense (6000), Credit Accounts Payable (2100)
+    - Bank Fee -> Debit Bank Fees (6100), Credit Cash (1000)
+    """
+    try:
+        amount = float(norm_row.get('amount', 0))
+    except:
+        amount = 0.0
+        
+    currency = norm_row.get('currency', 'GEL')
+    tag = norm_row.get('category_tag', 'General')
+    desc = norm_row.get('description', '')
+    posting_date = norm_row.get('date', datetime.datetime.now().strftime('%Y-%m-%d'))
+    
+    ledger_entries = []
+    
+    # Generic Entity Mapping (In production, trace from raw_row/file_metadata)
+    entity_id = norm_row.get('entity_id', 'LLC_PARENT_GEO')
+    
+    if tag == 'Bank Fee' or 'commission' in desc.lower():
+        # Debit Bank Fees
+        ledger_entries.append({
+            'entity_id': entity_id,
+            'account_id': '6100',
+            'direction': 'DEBIT',
+            'amount': abs(amount),
+            'currency': currency,
+            'posting_date': posting_date,
+            'intercompany': False
+        })
+        # Credit Cash
+        ledger_entries.append({
+            'entity_id': entity_id,
+            'account_id': '1000',
+            'direction': 'CREDIT',
+            'amount': abs(amount),
+            'currency': currency,
+            'posting_date': posting_date,
+            'intercompany': False
+        })
+    else:
+        # Default fallback categorization
+        direction_1 = 'DEBIT' if amount < 0 else 'CREDIT'
+        direction_2 = 'CREDIT' if amount < 0 else 'DEBIT'
+        
+        ledger_entries.append({
+            'entity_id': entity_id,
+            'account_id': '4000' if amount > 0 else '6000',
+            'direction': direction_1,
+            'amount': abs(amount),
+            'currency': currency,
+            'posting_date': posting_date,
+            'intercompany': False
+        })
+        ledger_entries.append({
+            'entity_id': entity_id,
+            'account_id': '9999', # Suspense Account
+            'direction': direction_2,
+            'amount': abs(amount),
+            'currency': currency,
+            'posting_date': posting_date,
+            'intercompany': False
+        })
+        
+    return ledger_entries

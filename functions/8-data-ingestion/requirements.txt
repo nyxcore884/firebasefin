@@ -3,7 +3,8 @@ flask==3.*
 pandas
 werkzeug
 google-cloud-firestore
+google-cloud-pubsub
+openpyxl
 pypdf
-
 firebase-functions
 firebase-admin
