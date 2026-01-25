@@ -7,6 +7,7 @@ from firebase_functions import pubsub_fn, options
 from google.cloud import firestore, pubsub_v1
 import firebase_admin
 from firebase_admin import initialize_app
+import datetime
 
 # Setup path for shared modules
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -35,14 +36,46 @@ NORMALIZED_TOPIC = os.environ.get('NORMALIZED_ROWS_TOPIC', 'normalized-rows-crea
 # Cache for schemas to minimize I/O
 SCHEMA_CACHE = {}
 
-def normalize_row(raw_row, rules):
+def match_contextual_rule(raw_field, raw_value, row_context, mapping_index):
     """
-    Apply normalization rules based on source_profile and dynamic overrides.
-    Maintains a flat structure for downstream Accounting Engine compatibility.
+    Picks the best rule from the prioritized index.
+    Complexity: O(R) where R is rules for this field (usually < 5).
+    """
+    import re
+    candidates = mapping_index.get(raw_field, [])
+    for r in candidates:
+        match_type = r.get('match_type', 'equals')
+        rule_val = str(r.get('raw_value', ''))
+        
+        # 1. Value Match
+        if match_type == 'equals' and str(raw_value).strip() != rule_val.strip():
+            continue
+        elif match_type == 'contains' and rule_val.lower() not in str(raw_value).lower():
+            continue
+        elif match_type == 'regex' and not re.search(rule_val, str(raw_value)):
+            continue
+            
+        # 2. Context Match (Structural Unit, Region, Counterparty)
+        # If a rule provides a context field, it MUST match. Empty = Wildcard.
+        if r.get('structural_unit') and r['structural_unit'].lower() not in str(row_context.get('structural_unit', '')).lower():
+            continue
+        if r.get('region') and r['region'].lower() not in str(row_context.get('region', '')).lower():
+            continue
+        if r.get('counterparty') and r['counterparty'].lower() not in str(row_context.get('counterparty', '')).lower():
+            continue
+            
+        # First one wins (since sorted by priority/specificity)
+        return r
+    return None
+
+def normalize_row(raw_row, rules_bundle):
+    """
+    Apply normalization with Business Rule Overrides.
     """
     raw = raw_row.get('raw', {})
-    schema = rules.get('active_schema')
-    mappings = rules.get('combined_mappings', {})
+    schema = rules_bundle.get('active_schema')
+    simple_mappings = rules_bundle.get('combined_mappings', {})
+    mapping_index = rules_bundle.get('mapping_index', {})
     
     normalized = {
         'source_file_id': raw_row.get('file_id'),
@@ -51,34 +84,53 @@ def normalize_row(raw_row, rules):
         'amount': 0.0,
         'currency': 'GEL',
         'description': '',
-        'category_tag': 'General'
+        'category_tag': 'General',
+        'mapping_version': rules_bundle.get('version', 'static')
     }
     
-    # 1. Field Mapping with pattern match
     mapped_keys = set()
-    targets = ['date', 'amount', 'currency', 'description', 'gl_account']
+    targets = ['date', 'amount', 'currency', 'description', 'gl_account', 'budget_holder']
     
+    # Context for matching
+    row_context = {
+        'structural_unit': raw.get('structural_unit', raw.get('Structural Unit', '')),
+        'region': raw.get('region', raw.get('Region', '')),
+        'counterparty': raw.get('counterparty', raw.get('vendor', raw.get('Vendor', '')))
+    }
+
+    # 1. Contextual Global Rules (Highest Priority)
+    for field in targets:
+        # Check if the field itself is used as a trigger for a mapping (usually 'budget_article')
+        # Here we check 'description' or the field name itself
+        rule = match_contextual_rule('description', raw.get('description', ''), row_context, mapping_index)
+        if not rule:
+            rule = match_contextual_rule('budget_article', raw.get('budget_article', ''), row_context, mapping_index)
+            
+        if rule and rule.get('target_field') == field:
+            normalized[field] = rule.get('target_value')
+            if field == 'budget_holder': mapped_keys.add('budget_article')
+
+    # 2. Field Mapping (Pattern match / YAML defaults)
     for k, v in raw.items():
         lk = str(k).lower()
-        if lk in mappings:
-            target = mappings[lk]
-            if target in targets:
+        if lk in simple_mappings:
+            target = simple_mappings[lk]
+            if target in targets and not normalized.get(target):
                 normalized[target] = v
                 mapped_keys.add(k)
                 
-    # 2. Preserve Unmapped Fields (Patch 004 requirement)
+    # 3. Preservation & Heuristics
     for k, v in raw.items():
         if k not in mapped_keys:
             normalized[f"original_{k}"] = v
 
-    # 3. Fallback to Generic Heuristics
     if not normalized['date']:
         normalized['date'] = raw.get('Date', raw.get('date', ''))
     if not normalized['amount'] or normalized['amount'] == 0:
         normalized['amount'] = raw.get('Amount', raw.get('amount', '0'))
     if not normalized['description']:
         normalized['description'] = raw.get('Description', raw.get('description', ''))
-
+    
     # 4. Categorization (from specialized Schema)
     if schema:
         gl = str(normalized.get('gl_account', ''))
@@ -115,15 +167,15 @@ def transform_raw_rows(event: pubsub_fn.CloudEvent) -> None:
         
         # Load Mapping Rules
         try:
-            rules = get_combined_mapping_rules(source_profile, db)
+            rules = get_combined_mapping_rules(db=db, source_profile=source_profile)
             mapping_version = {
                 'profile': source_profile,
-                'dynamic_overrides': rules.get('is_dynamic', False),
+                'dynamic_rules_count': len(rules.get('firestore_mappings', [])),
                 'timestamp': datetime.datetime.now().isoformat()
             }
         except Exception as e:
             logger.error(f"Failed to load rules: {e}")
-            rules = {"combined_mappings": {}}
+            rules = {"combined_mappings": {}, "mapping_index": {}}
             mapping_version = {'status': 'error', 'profile': source_profile}
 
         raw_rows_ref = db.collection('raw_rows').where('file_id', '==', file_id).stream()

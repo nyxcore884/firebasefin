@@ -1,13 +1,7 @@
-functions-framework
+firebase-functions
+firebase-admin
 google-cloud-firestore
 google-cloud-storage
-<<<<<<< Updated upstream
 pandas
 numpy
 prophet
-
-=======
-numpy
->>>>>>> Stashed changes
-firebase-functions
-firebase-admin

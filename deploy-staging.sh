@@ -25,6 +25,7 @@ DUCKDB_SA="${APPLICATION_SA}" # Using existing application SA for DuckDB
 # Storage buckets
 UPLOADS_BUCKET="${PROJECT_ID}-financial-uploads"
 REPORTS_BUCKET="${PROJECT_ID}-generated-reports"
+STAGING_BUCKET="${PROJECT_ID}-bq-staging"
 
 # BigQuery dataset
 BQ_DATASET="financial_data"
@@ -32,6 +33,7 @@ BQ_DATASET="financial_data"
 # Topics
 RAW_TOPIC="raw-rows-created"
 NORMALIZED_TOPIC="normalized-rows-created"
+MAPPING_TOPIC="mapping-set-changed"
 
 echo "----------------------------------------------------------"
 echo "🚀 Target Project: ${PROJECT_ID}"
@@ -69,6 +71,11 @@ fi
 echo "✅ Creating Pub/Sub topics..."
 gcloud pubsub topics create "${RAW_TOPIC}" --project="${PROJECT_ID}" || true
 gcloud pubsub topics create "${NORMALIZED_TOPIC}" --project="${PROJECT_ID}" || true
+gcloud pubsub topics create "${MAPPING_TOPIC}" --project="${PROJECT_ID}" || true
+
+# P1.1: Dead Letter Queues
+gcloud pubsub topics create "${RAW_TOPIC}-dlq" --project="${PROJECT_ID}" || true
+gcloud pubsub topics create "${NORMALIZED_TOPIC}-dlq" --project="${PROJECT_ID}" || true
 
 # === 4. Create/Verify Pipeline Service Accounts ===
 echo "✅ Configuring service accounts..."
@@ -98,8 +105,10 @@ gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member="serviceAccount:
 gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member="serviceAccount:${DUCKDB_SA}" --role="roles/bigquery.dataViewer" --condition=None >/dev/null
 gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member="serviceAccount:${DUCKDB_SA}" --role="roles/datastore.user" --condition=None >/dev/null
 
-# BigQuery Editor for Accounting Engine (To stream entries)
+# BigQuery Editor & Job User for Accounting Engine (P1.3 Batch Loads)
 gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member="serviceAccount:${ACCOUNTING_SA}" --role="roles/bigquery.dataEditor" --condition=None >/dev/null
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member="serviceAccount:${ACCOUNTING_SA}" --role="roles/bigquery.jobUser" --condition=None >/dev/null
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member="serviceAccount:${ACCOUNTING_SA}" --role="roles/storage.objectAdmin" --condition=None >/dev/null
 
 # Cloud Build permissions to orchestrate deployment
 CLOUDBUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
@@ -109,6 +118,15 @@ gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member="serviceAccount:
 gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member="serviceAccount:${CLOUDBUILD_SA}" --role="roles/artifactregistry.writer" --condition=None >/dev/null
 gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member="serviceAccount:${CLOUDBUILD_SA}" --role="roles/storage.admin" --condition=None >/dev/null
 
+# P1.1: Pub/Sub Service Agent permissions for DLQ
+PUBSUB_SERVICE_ACCOUNT="service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com"
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:${PUBSUB_SERVICE_ACCOUNT}" \
+    --role="roles/pubsub.publisher" --condition=None >/dev/null
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:${PUBSUB_SERVICE_ACCOUNT}" \
+    --role="roles/pubsub.subscriber" --condition=None >/dev/null
+
 # === 6. Create Storage Buckets ===
 echo "✅ Creating storage buckets..."
 if ! gsutil ls -b "gs://${UPLOADS_BUCKET}" >/dev/null 2>&1; then
@@ -116,6 +134,9 @@ if ! gsutil ls -b "gs://${UPLOADS_BUCKET}" >/dev/null 2>&1; then
 fi
 if ! gsutil ls -b "gs://${REPORTS_BUCKET}" >/dev/null 2>&1; then
   gsutil mb -l "${REGION}" "gs://${REPORTS_BUCKET}"
+fi
+if ! gsutil ls -b "gs://${STAGING_BUCKET}" >/dev/null 2>&1; then
+  gsutil mb -l "${REGION}" "gs://${STAGING_BUCKET}"
 fi
 
 # === 7. Create BigQuery Dataset & Tables ===
@@ -138,5 +159,17 @@ echo "🛠 Starting Build Orchestration..."
 gcloud builds submit --config=cloudbuild.yaml . \
   --substitutions=_PROJECT_ID="${PROJECT_ID}",_REGION="${REGION}",_ARTIFACT_REGISTRY_LOCATION="${ARTIFACT_REGISTRY_LOCATION}",_ARTIFACT_REGISTRY_REPO="${ARTIFACT_REGISTRY_REPO}",_DUCKDB_IMAGE_NAME="${DUCKDB_IMAGE_NAME}",_DUCKDB_SA="${DUCKDB_SA}",_INGEST_SA="${INGEST_SA}",_TRANSFORM_SA="${TRANSFORM_SA}",_ACCOUNTING_SA="${ACCOUNTING_SA}",_FUNCTION_REGION="${FUNCTION_REGION}" \
   --project="${PROJECT_ID}"
+
+# === 9. Special Deployment: Mapping Ingestion (HTTP) ===
+echo "✅ Deploying Mapping Ingestion Service..."
+gcloud functions deploy mapping_upload \
+  --region="${REGION}" \
+  --runtime=python311 \
+  --trigger-http \
+  --entry-point=mapping_upload \
+  --source=functions/7-mapping-ingestion \
+  --set-env-vars=MAPPING_CHANGED_TOPIC="${MAPPING_TOPIC}",PROJECT_ID="${PROJECT_ID}" \
+  --project="${PROJECT_ID}" \
+  --no-allow-unauthenticated
 
 echo "✅ Pipeline setup and build triggered successfully."

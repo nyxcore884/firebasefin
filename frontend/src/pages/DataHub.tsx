@@ -1,34 +1,23 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Upload } from 'lucide-react';
+import { Upload, Activity, Workflow } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, CreditCard, Workflow, BrainCircuit, Activity } from 'lucide-react';
 import { AIText } from '@/components/common/AIText';
-
-// Sub-components
-// PipelineMonitor Removed
 
 // Sub-components
 import DatasetRegistry from '@/components/data-hub/DatasetRegistry';
 import MappingMatrix from '@/components/data-hub/MappingMatrix';
+import MappingUpload from '@/components/data-hub/MappingUpload';
 import AITrainingControls from '@/components/data-hub/AITrainingControls';
 import VertexAIPipelines from '@/components/data-hub/VertexAIPipelines';
 import FinancialOps from '@/components/data-hub/FinancialOps';
 import ChartOfAccounts from '@/components/data-hub/ChartOfAccounts';
 import DataExplorer from '@/components/data-hub/DataExplorer';
-
 import { FinancialHierarchy } from '@/components/data-hub/FinancialHierarchy';
-<<<<<<< Updated upstream
-import { PaymentTree } from '@/components/data-hub/PaymentTree';
-import { MOCK_COMPANY_STRUCTURE, PAYMENT_TREE } from '@/data/mock-engine';
-=======
-import PaymentMatrix from '@/components/analysis/PaymentMatrix';
->>>>>>> Stashed changes
-import { PrognosisDashboard } from '@/components/prognosis/PrognosisDashboard';
 import StorageManager from '@/components/data-hub/StorageManager';
 import FinancialInsightsDashboard from '@/components/data-hub/FinancialInsightsDashboard';
 
@@ -43,22 +32,12 @@ const DataHub = () => {
   };
 
   return (
-<<<<<<< Updated upstream
-    <div className="space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-5 duration-700">
-      <Tabs defaultValue="insights" className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground/90 flex items-center gap-3">
-              <span className="bg-primary/10 p-2 rounded-lg"><Upload className="h-6 w-6 text-primary" /></span>
-              Data Hub
-=======
     <div className="space-y-8 pb-12 w-full p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
       <Tabs defaultValue="insights" className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black tracking-tight text-glow uppercase italic">
               <AIText>Strategic Ledger Nexus</AIText>
->>>>>>> Stashed changes
             </h1>
             <p className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 flex items-center gap-2 mt-1">
               <Activity className="h-3 w-3" /> <AIText>Financial Operations & Governance Gateway</AIText>
@@ -113,45 +92,7 @@ const DataHub = () => {
         </TabsContent>
 
         <TabsContent value="ingestion" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-<<<<<<< Updated upstream
-          <div className="grid grid-cols-1 gap-6">
-            <div className="space-y-2">
-              <h3 className="text-lg font-medium">Data Ingestion Pipeline</h3>
-              <p className="text-sm text-muted-foreground">Upload raw financial documents (Excel, CSV, PDF) here. The system will automatically validate, transform, and map them to the SOCAR hierarchy.</p>
-            </div>
-            <StorageManager onIngestionSuccess={handleIngestionSuccess} />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="datasets" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <DatasetRegistry />
-        </TabsContent>
-
-        <TabsContent value="hierarchy" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <FinancialHierarchy data={MOCK_COMPANY_STRUCTURE} />
-        </TabsContent>
-
-        <TabsContent value="payments" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <PaymentTree data={PAYMENT_TREE} />
-        </TabsContent>
-
-        <TabsContent value="mapping" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <MappingMatrix />
-        </TabsContent>
-
-        <TabsContent value="ai-controls" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <AITrainingControls />
-        </TabsContent>
-
-        <TabsContent value="prognosis" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <PrognosisDashboard />
-        </TabsContent>
-
-        <TabsContent value="storage" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-=======
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
->>>>>>> Stashed changes
             <div className="lg:col-span-2">
               <StorageManager onIngestionSuccess={handleIngestionSuccess} />
             </div>
@@ -180,11 +121,14 @@ const DataHub = () => {
         <TabsContent value="engineering" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
           <div className="grid grid-cols-1 gap-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <MappingUpload />
               <AITrainingControls />
-              <VertexAIPipelines />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <MappingMatrix />
+              <VertexAIPipelines />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <FinancialHierarchy />
             </div>
           </div>

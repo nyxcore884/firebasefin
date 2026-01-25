@@ -13,16 +13,7 @@
     {
       "source": "functions/4-doc-analysis",
       "codebase": "doc-analysis",
-<<<<<<< Updated upstream
-      "runtime": "python311",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log"
-      ]
-=======
       "runtime": "python311"
->>>>>>> Stashed changes
     },
     {
       "source": "functions/5-financial-engine",
@@ -45,6 +36,11 @@
       "runtime": "python311"
     },
     {
+      "source": "functions/7-mapping-ingestion",
+      "codebase": "mapping-ingestion",
+      "runtime": "python311"
+    },
+    {
       "source": "functions/8-data-ingestion",
       "codebase": "data-ingestion-v2",
       "runtime": "python311"
@@ -57,14 +53,6 @@
     {
       "source": "functions/10-reporting",
       "codebase": "reporting",
-<<<<<<< Updated upstream
-      "runtime": "python311",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "__pycache__"
-      ]
-=======
       "runtime": "python311"
     },
     {
@@ -96,7 +84,6 @@
       "source": "functions/15-truth-engine",
       "codebase": "truth_engine",
       "runtime": "python311"
->>>>>>> Stashed changes
     }
   ],
   "hosting": {
@@ -108,95 +95,28 @@
     ],
     "rewrites": [
       {
-<<<<<<< Updated upstream
-        "source": "/api/analyze_document",
-        "run": {
-          "serviceId": "doc-analysis",
-          "region": "us-central1"
-        }
+        "source": "/api/mapping/upload",
+        "function": "mapping_upload"
       },
       {
-        "source": "/api/**",
-        "run": {
-          "serviceId": "financial-analysis-engine",
-          "region": "us-central1"
-        }
-      },
-      {
-        "source": "/api/registry/**",
-        "run": {
-          "serviceId": "registry_api",
-          "region": "us-central1"
-        }
-=======
-        "source": "/api/process-transaction/**",
-        "function": "process_transaction"
-      },
-      {
-        "source": "/api/process_transaction/**",
-        "function": "process_transaction"
+        "source": "/api/ingest",
+        "function": "ingest_data"
       },
       {
         "source": "/api/financial-truth",
         "function": "generate_financial_truth"
       },
       {
-        "source": "/api/truth",
-        "function": "generate_financial_truth"
-      },
-      {
-        "source": "/api/translate",
-        "function": "translate_ui_batch"
-      },
-      {
-        "source": "/api/knowledge/ingest",
-        "function": "ingest_knowedge_item"
-      },
-      {
-        "source": "/api/knowledge/search",
-        "function": "search_knowledge_base"
-      },
-      {
-        "source": "/api/anomalies/detect",
-        "function": "detect_financial_anomalies"
-      },
-      {
-        "source": "/api/metrics/variance",
-        "function": "process_transaction"
->>>>>>> Stashed changes
-      },
-      {
-        "source": "/api/ingest",
-        "run": {
-          "serviceId": "ingest_data",
-          "region": "us-central1"
-        }
+        "source": "/api/analyze_document",
+        "function": "analyze_doc"
       },
       {
         "source": "/api/query",
-<<<<<<< Updated upstream
-        "run": {
-          "serviceId": "ai_query_api",
-          "region": "us-central1"
-        }
-      },
-      {
-        "source": "/api/report",
-        "run": {
-          "serviceId": "download_report",
-          "region": "us-central1"
-        }
-=======
-        "function": "ai_query_api"
-      },
-      {
-        "source": "/functions/ai",
         "function": "ai_query_api"
       },
       {
         "source": "/api/actions",
         "function": "dashboard_actions"
->>>>>>> Stashed changes
       },
       {
         "source": "**",

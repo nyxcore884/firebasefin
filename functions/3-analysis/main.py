@@ -1,106 +1,58 @@
-from firebase_functions import https_fn
+from firebase_functions import https_fn, options
 import json
+import logging
+import os
+import pandas as pd
+import numpy as np
+from prophet import Prophet
 
-<<<<<<< Updated upstream
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("analysis-prognosis")
 
-# This function should be an HTTP function (callable from frontend)
-@functions_framework.http
-def run_financial_simulation(request):
+@https_fn.on_request(
+    cors=options.CorsOptions(cors_origins="*", cors_methods=["POST", "OPTIONS"]),
+    timeout_sec=120,
+    memory=options.MemoryOption.MB_512,
+)
+def run_financial_simulation(req: https_fn.Request) -> https_fn.Response:
     """
     HTTP Cloud Function to run Financial Prognostics using Prophet.
-    Accepts: { horizon, inflation, seasonality, etc. }
-    Returns: JSON with forecast data and explanation.
+    Accepts: { horizon, inflation, seasonality }
     """
-    
-    # helper for CORS
-    if request.method == 'OPTIONS':
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST',
-            'Access-Control-Allow-Headers': 'Content-Type',
-            'Access-Control-Max-Age': '3600'
-        }
-        return ('', 204, headers)
-
-    headers = { 'Access-Control-Allow-Origin': '*' }
-
     try:
-        request_json = request.get_json(silent=True)
-        
-        # Default Parameters
-        horizon = 12
-        inflation = 2.0
-        seasonality = True
-        
-        if request_json:
-            horizon = request_json.get('horizon', 12)
-            inflation = request_json.get('inflation', 2.0)
-            seasonality = request_json.get('seasonality', True)
+        body = req.get_json(silent=True) or {}
+        horizon = int(body.get('horizon', 12))
+        inflation = float(body.get('inflation', 2.0))
+        seasonality = bool(body.get('seasonality', True))
 
-        print(f"[ANALYSIS] Running simulation: Horizon={horizon}, Inflation={inflation}%, Seasonality={seasonality}")
+        logger.info(f"Running simulation: Horizon={horizon}, Inflation={inflation}%, Seasonality={seasonality}")
 
-        # Lazy Imports
-        import pandas as pd
-        import numpy as np
-        from prophet import Prophet
-        from google.cloud import storage
-
-        # --- DATA LOADING (Mocking read from Storage for now, assuming files exist) ---
-        # In a real scenario, we would read:
-        # uri = "gs://raw-financial-data-ingestion/Actual PY.txt"
-        # df = pd.read_csv(uri)
-        
-        # Generating Synthetic "Actuals" Data to feed the model
-        # (This replaces the mock in the frontend, but still generates data here 
-        # because we don't have the physical files in this environment yet)
-        dates = pd.date_range(start='2021-01-01', end='2023-12-31', freq='M')
-        base_val = 50000
+        # Generating Synthetic "Actuals" Data
+        dates = pd.date_range(start='2022-01-01', end='2024-12-31', freq='M')
+        base_val = 60000
         
         df_data = []
         for i, date in enumerate(dates):
-            val = base_val + (i * 200) + (np.random.normal(0, 1000))
-            # Inject Seasonality logic if it was "historical" data
+            val = base_val + (i * 250) + (np.random.normal(0, 1500))
             if date.month in [10, 11, 12]:
-                val += 5000
-            
+                val += 7000
             df_data.append({'ds': date, 'y': val})
             
         df = pd.DataFrame(df_data)
 
-        # --- PROPHET MODELING ---
-        # Initialize Prophet
+        # Prophet Modeling
         m = Prophet(yearly_seasonality=seasonality, weekly_seasonality=False, daily_seasonality=False)
-        
-        # Add Regressors/Drivers based on params? 
-        # For simplicity, we stick to univariate time series with inflation trend adjustment
-        
         m.fit(df)
 
-        # Create Future Dataframe
         future = m.make_future_dataframe(periods=horizon, freq='M')
-        
-        # Forecast
         forecast = m.predict(future)
-
-        # --- ADJUSTMENTS & POST-PROCESSING ---
-        # Apply "Inflation" lever manually to the forecast trend
-        # (Prophet handles trend, but we want to user-override it)
         
         forecast_tail = forecast.tail(horizon).copy()
-        
-        # Apply inflation compound to the predicted 'yhat'
         inflation_multiplier = 1 + (inflation / 100)
         
-        # We apply strictly to the future part
-        # Logic: Enhance the trend component by the inflation factor
-        
         results = []
-        
-        # Combine Historical + Forecast
-        # output format compatible with Recharts (month string, actual, forecast, bounds)
-        
         # 1. Historicals
-        for idx, row in df.iterrows():
+        for _, row in df.iterrows():
             results.append({
                 "month": row['ds'].strftime('%Y-%b'),
                 "actual": round(row['y'], 2),
@@ -110,14 +62,11 @@ def run_financial_simulation(request):
             })
             
         # 2. Forecast
-        for idx, row in forecast_tail.iterrows():
-            # Apply user inflation knob
+        for _, row in forecast_tail.iterrows():
             adjusted_yhat = row['yhat'] * inflation_multiplier
             uncertainty = (row['yhat_upper'] - row['yhat_lower']) / 2
-            
-            # Widen uncertainty if inflation is high
             if inflation > 5:
-                uncertainty *= 1.5
+                uncertainty *= 1.3
                 
             results.append({
                 "month": row['ds'].strftime('%Y-%b'),
@@ -127,26 +76,16 @@ def run_financial_simulation(request):
                 "upper": round(adjusted_yhat + uncertainty, 2)
             })
 
-        # --- EXPLANATION GENERATION ---
-        explanation = f"Generated by backend Prophet Engine. "
-        explanation += f"Trained on {len(df)} historical data points. "
-        if seasonality:
-            explanation += "Seasonality enabled (Q4 weight). "
-        if inflation > 5:
-            explanation += f"Inflation adjustment (+{inflation}%) applied to trend. "
-            
-        response_data = {
-            "chartData": results,
-            "explanation": explanation
-        }
+        explanation = f"Prophet Engine Analysis: Trained on {len(df)} cycles. "
+        explanation += f"{'Cyclicality enabled' if seasonality else 'Linear trend focus'}. "
+        explanation += f"Macro adjustment of {inflation}% applied."
 
-        return (json.dumps(response_data), 200, headers)
+        return https_fn.Response(
+            json.dumps({"chartData": results, "explanation": explanation}),
+            status=200,
+            headers={"Content-Type": "application/json"}
+        )
 
     except Exception as e:
-        print(f"[ANALYSIS-ERROR] {e}")
-        return (json.dumps({"error": str(e)}), 500, headers)
-=======
-@https_fn.on_request()
-def run_financial_simulation(req):
-    return https_fn.Response(json.dumps({"error": "Service Deprecated"}), status=410)
->>>>>>> Stashed changes
+        logger.exception("Analysis error: %s", e)
+        return https_fn.Response(json.dumps({"error": str(e)}), status=500, headers={"Content-Type": "application/json"})

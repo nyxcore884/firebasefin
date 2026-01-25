@@ -67,3 +67,24 @@ export const fetchFinancialTruth = async (
         return null;
     }
 };
+
+/**
+ * Generic API POST Helper
+ */
+export const apiPost = async (url: string, body: any) => {
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+            const error = await res.json().catch(() => ({ error: 'Unknown Error' }));
+            throw new Error(error.error || `Request failed with status ${res.status}`);
+        }
+        return await res.json();
+    } catch (e) {
+        console.error(`Post Error at ${url}:`, e);
+        throw e;
+    }
+};
