@@ -1,0 +1,49 @@
+metrics:
+
+  opex_actual:
+    label: Operating Expenses (Actual)
+    description: Total operating expenses incurred in the period
+    source: fact_financial_summary
+    measure: actual_month
+    accounts: [6000-6999]
+    aggregation: sum
+    currency: GEL
+
+  opex_budget:
+    label: Operating Expenses (Budget)
+    source: fact_financial_summary
+    measure: budget_month
+    accounts: [6000-6999]
+    aggregation: sum
+
+  opex_variance:
+    label: OPEX Variance
+    formula: opex_actual - opex_budget
+
+  opex_variance_pct:
+    label: OPEX Variance %
+    formula: opex_variance / opex_budget
+
+kpis:
+
+  budget_execution_rate:
+    label: Budget Execution Rate
+    formula: opex_actual / opex_budget
+    interpretation:
+      - ">1.0": Over budget
+      - "<1.0": Under budget
+
+  ytd_spend_ratio:
+    label: YTD Spend Ratio
+    formula: actual_ytd / budget_ytd
+
+drivers:
+
+  opex_by_category:
+    dimension: budget_article
+    measure: actual_month
+    aggregation: sum
+
+  variance_by_category:
+    dimension: budget_article
+    measure: variance_month

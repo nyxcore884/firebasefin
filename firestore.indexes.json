@@ -1,6 +1,7 @@
 {
   "indexes": [
     {
+<<<<<<< Updated upstream
       "collectionGroup": "financial_transactions",
       "queryScope": "COLLECTION",
       "fields": [
@@ -16,6 +17,9 @@
     },
     {
       "collectionGroup": "financial_transactions",
+=======
+      "collectionGroup": "financial_data",
+>>>>>>> Stashed changes
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -23,8 +27,31 @@
           "order": "ASCENDING"
         },
         {
+<<<<<<< Updated upstream
           "fieldPath": "date",
           "order": "DESCENDING"
+=======
+          "fieldPath": "period",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "financial_data",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "company_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "period",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "department",
+          "order": "ASCENDING"
+>>>>>>> Stashed changes
         }
       ]
     },
@@ -39,6 +66,28 @@
         {
           "fieldPath": "created_at",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "fact_financial_summary",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "dataset_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dataset_version",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "entity",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "department",
+          "order": "ASCENDING"
         }
       ]
     }

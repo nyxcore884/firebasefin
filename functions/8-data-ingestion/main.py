@@ -11,7 +11,17 @@ from firebase_admin import credentials, initialize_app
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+<<<<<<< Updated upstream
 # Initialize Firebase Admin (Required for Storage/Firestore access if not using google.cloud lib directly)
+=======
+# Emulator Support: Ensure STORAGE_EMULATOR_HOST is set if running in emulator
+if os.environ.get("FIREBASE_STORAGE_EMULATOR_HOST") and not os.environ.get("STORAGE_EMULATOR_HOST"):
+    os.environ["STORAGE_EMULATOR_HOST"] = os.environ["FIREBASE_STORAGE_EMULATOR_HOST"]
+    logger.info(f"Set STORAGE_EMULATOR_HOST to {os.environ['STORAGE_EMULATOR_HOST']}")
+
+
+# Initialize Firebase Admin
+>>>>>>> Stashed changes
 if not firebase_admin._apps:
     initialize_app()
 
@@ -129,6 +139,7 @@ def validate_data(df) -> bool:
 
     return True
 
+<<<<<<< Updated upstream
 
 def map_financial_data(df):
     """Maps raw inputs to SOCAR Standard Hierarchy using rules from Firestore"""
@@ -136,6 +147,143 @@ def map_financial_data(df):
     logger.info("Starting Dynamic Mapping...")
     
     # 1. Fetch Mapping Rules from Firestore
+=======
+def unpivot_cross_tab_data(rows):
+    """
+    Robust Unpivot Logic:
+    1. Scans first 20 rows to find the 'Header Row' containing month names.
+    2. Uses that row as keys for subsequent data.
+    3. Unpivots data from Cross-Tab to Flat format.
+    """
+    if not rows: return rows
+    
+    month_map = {
+        'january': 1, 'jan': 1, 'february': 2, 'feb': 2, 'march': 3, 'mar': 3,
+        'april': 4, 'apr': 4, 'may': 5, 'june': 6, 'jun': 6,
+        'july': 7, 'jul': 7, 'august': 8, 'aug': 8, 'september': 9, 'sep': 9, 'sept': 9,
+        'october': 10, 'oct': 10, 'november': 11, 'nov': 11, 'december': 12, 'dec': 12
+    }
+    
+    # helper to check if a row looks like a header
+    def get_month_matches(row_keys):
+        matches = []
+        for k in row_keys:
+            if str(k).lower().strip() in month_map:
+                matches.append(str(k).lower().strip())
+        return matches
+
+    # 1. Header Hunting
+    header_row_index = -1
+    detected_keys = []
+    
+    # Check if we already have keys in the first row dict
+    first_keys = list(rows[0].keys())
+    if len(get_month_matches(first_keys)) >= 1:
+        header_row_index = -1 # Already correct
+        detected_keys = first_keys
+    else:
+        # Scan values of first 20 rows to find headers
+        for idx, row in enumerate(rows[:20]):
+            # In parsed CSV/Excel, 'keys' are often columns, but if header is down,
+            # the values in this row might be the real headers.
+            # However, DictReader/OpenPyXL usually sets keys from Row 1.
+            # If header is row 5, Row 1 keys are garbage, and Row 5's VALUES are the headers.
+            
+            # Check values
+            row_values = [str(v) for v in row.values() if v]
+            matches = get_month_matches(row_values)
+            if len(matches) >= 3:
+                header_row_index = idx
+                detected_keys = row_values
+                logger.info(f"Refined Header Detection: Found headers at Row {idx+1}: {matches}")
+                break
+    
+    # If we found a new header row deep in the file, we need to re-map the data
+    # BECAREFUL: The 'rows' list is already dicts with WRONG keys.
+    # We need to grab the values from subsequent rows and map them to 'detected_keys'.
+    
+    clean_data_rows = []
+    
+    if header_row_index != -1:
+        # We need to realign data
+        # Row at header_row_index contains the keys.
+        # Rows after that contain the data.
+        
+        # OpenPyXL/CSV reader already parsed it into dicts based on Row 1 (garbage).
+        # We need to treat them as lists of values essentially.
+        
+        # Map detected_keys (list of strings) to their position in the 'values' list?
+        # No, dicts are unordered in older python but ordered in new.
+        # Safer: The values in `rows[header_row_index]` ARE the keys.
+        # But we don't know which key in the garbage-dict corresponds to which column index efficiently
+        # unless we rely on insertion order (Python 3.7+ feature, standard now).
+        
+        # Strategy:
+        # 1. Provide a mapping from Garbage-Key -> Real-Key based on the Header Row Line.
+        header_source_row = rows[header_row_index]
+        key_map = {} # GarbageKey -> RealKey
+        
+        for k, v in header_source_row.items():
+            if str(v).lower().strip() in month_map or str(v).lower().strip() in ['company', 'gl', 'description', 'amount']:
+                 key_map[k] = str(v).strip()
+            # If v contains header name, map k to v
+            
+        # Actually simplest way: Just grab values() list from subsequent rows and zip with detected_keys?
+        # But we need to ensure alignment.
+        # Let's trust that `rows[header_row_index].values()` represents the column order.
+        real_keys = list(rows[header_row_index].values())
+        
+        for row in rows[header_row_index+1:]:
+            new_row_dict = {}
+            vals = list(row.values())
+            # Zip only up to length
+            for i, key in enumerate(real_keys):
+                if i < len(vals) and key:
+                    new_row_dict[str(key)] = vals[i]
+            clean_data_rows.append(new_row_dict)
+            
+    else:
+        # Standard case (Header was Row 1) or Header not found
+        if len(get_month_matches(first_keys)) < 1:
+             return rows # Give up
+        clean_data_rows = rows
+
+    # 2. Unpivot Logic (Same as before but on clean_data_rows)
+    new_rows = []
+    current_year = datetime.date.today().year 
+    
+    for row in clean_data_rows:
+        # Base metadata
+        base_data = {k: v for k, v in row.items() if str(k).lower().strip() not in month_map}
+        
+        for col_name in row:
+            key_clean = str(col_name).lower().strip()
+            if key_clean in month_map:
+                val = row[col_name]
+                try:
+                    if isinstance(val, str):
+                        val = val.replace(',', '').replace(' ', '')
+                        if val in ['-', '']: val = 0
+                    amount = float(val)
+                except (ValueError, TypeError):
+                    amount = 0.0
+                    
+                if amount != 0:
+                    new_record = base_data.copy()
+                    month_num = month_map[key_clean]
+                    year = 2023 # Context default
+                    new_record['date'] = f"{year}-{month_num:02d}-01"
+                    new_record['amount'] = amount
+                    new_rows.append(new_record)
+                    
+    logger.info(f"Unpivoted {len(clean_data_rows)} source rows into {len(new_rows)} transactions.")
+    logger.info(f"[UNPIVOT-DEBUG] Sample output: {new_rows[:2] if new_rows else 'EMPTY'}")
+    return new_rows
+
+def get_mapping_rules():
+    """Fetch Mapping Rules from Firestore"""
+    mapping_dict = {}
+>>>>>>> Stashed changes
     try:
         db_client = get_db()
         rules_ref = db_client.collection('mapping_rules')
@@ -332,8 +480,8 @@ def store_data(df, filename: str):
 
 @https_fn.on_request(
     cors=options.CorsOptions(cors_origins="*", cors_methods=["post", "options"]),
-    timeout_sec=300,
-    memory=options.MemoryOption.MB_512,
+    timeout_sec=540,
+    memory=options.MemoryOption.GB_2,
 )
 def ingest_data(req: https_fn.Request) -> https_fn.Response:
     """
@@ -397,7 +545,29 @@ def ingest_data(req: https_fn.Request) -> https_fn.Response:
         if filename.endswith('.csv'):
             df = pd.read_csv(file_stream)
         elif filename.endswith(('.xls', '.xlsx')):
+<<<<<<< Updated upstream
             df = pd.read_excel(file_stream)
+=======
+             # OpenPyXL Memory Optimization: read_only=True
+             wb = openpyxl.load_workbook(file_stream, data_only=True, read_only=True)
+             ws = wb.active
+             rows_iter = ws.iter_rows(values_only=True)
+             headers = next(rows_iter, None)
+             if headers:
+                 headers = [str(h) for h in headers if h is not None]
+                 for row in rows_iter:
+                     record = {}
+                     for i, val in enumerate(row):
+                         if i < len(headers):
+                             record[headers[i]] = val
+                     raw_rows.append(record)
+             
+             # **DEBUG LOG**
+             if raw_rows:
+                 logger.info(f"[DEBUG] Excel parsed. First row keys: {list(raw_rows[0].keys())}")
+                 logger.info(f"[DEBUG] Total raw rows: {len(raw_rows)}")
+
+>>>>>>> Stashed changes
         elif filename.endswith('.pdf'):
             # Basic PDF Text Extraction
             from pypdf import PdfReader
@@ -425,6 +595,9 @@ def ingest_data(req: https_fn.Request) -> https_fn.Response:
         else:
              return https_fn.Response(json.dumps({"error": "Unsupported file format. Use CSV, Excel, or PDF."}), status=400, headers={"Content-Type": "application/json"})
              
+        # Unpivot Check (Cross-Tab Support)
+        raw_rows = unpivot_cross_tab_data(raw_rows)
+        
         # Validate
         if not validate_data(df):
              return https_fn.Response(json.dumps({"error": "Validation failed: Missing required columns (transaction_id, amount, date, currency)"}), status=400, headers={"Content-Type": "application/json"})
@@ -471,6 +644,29 @@ def ingest_data(req: https_fn.Request) -> https_fn.Response:
         # Store
         store_data(transformed_df, filename)
         
+        # Register Dataset in Catalog
+        dataset_metadata = {
+             'id': filename.lower().replace('.', '_').replace(' ', '_'),
+             'name': filename,
+             'description': f"Imported via Data Hub on {datetime.datetime.now().strftime('%Y-%m-%d')}",
+             'owner': user_id,
+             'type': 'ingested_file',
+             'tags': ['finance' if 'accounting' in filename.lower() or 'gl' in list(transformed_ledger[0].keys() if transformed_ledger else []) else 'general'],
+             'schema': {k: str(type(v).__name__) for k, v in transformed_ledger[0].items()} if transformed_ledger else {},
+             'lineage': ['Storage', 'Ingestion_Pipeline'],
+             'row_count': len(transformed_ledger),
+             'total_value': total_value,
+             'created_at': firestore.SERVER_TIMESTAMP,
+             'quality_status': [{'rule': 'schema_validation', 'passed': True, 'timestamp': firestore.SERVER_TIMESTAMP}]
+        }
+        
+        try:
+            db_client = get_db()
+            db_client.collection('datasets').document(dataset_metadata['id']).set(dataset_metadata, merge=True)
+            logger.info(f"Dataset registered: {dataset_metadata['id']}")
+        except Exception as reg_error:
+            logger.error(f"Failed to register dataset: {reg_error}")
+
         return https_fn.Response(json.dumps({
             "message": "Data ingested successfully",
             "rows_processed": row_count,

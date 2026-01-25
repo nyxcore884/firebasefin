@@ -70,7 +70,12 @@ export const AIAssistant: React.FC = () => {
     setInput('');
 
     try {
+<<<<<<< Updated upstream
       const response = await fetch('https://vertex-ai-inference-733431756980.us-central1.run.app/predict', {
+=======
+      // Calling the "Brain" function via verified Hosting Rewrite
+      const response = await fetch(`/api/query?cb=${Date.now()}`, {
+>>>>>>> Stashed changes
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

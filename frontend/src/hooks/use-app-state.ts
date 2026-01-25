@@ -11,10 +11,15 @@ export const translations = {
     reports: 'Reports',
     queries: 'Queries',
     dataHub: 'Data Hub',
-    mlTuning: 'ML Tuning',
     settings: 'Settings',
     upload: 'Upload',
     presentation: 'Presentation',
+    smartCanvas: 'Smart Canvas',
+    mlTuning: 'ML Tuning',
+    aiManagement: 'AI Management',
+    systemsHub: 'Systems Hub',
+    knowledgeBase: 'Knowledge Base',
+    statutoryReports: 'Statutory Reports',
   },
   ka: {
     language: 'ენა',
@@ -25,10 +30,15 @@ export const translations = {
     reports: 'ანგარიშები',
     queries: 'მოთხოვნები',
     dataHub: 'მონაცემთა ბაზა',
-    mlTuning: 'ML ტიუნინგი',
     settings: 'პარამეტრები',
     upload: 'ატვირთვა',
     presentation: 'პრეზენტაცია',
+    smartCanvas: 'ჭკვიანი ტილო',
+    mlTuning: 'ML ტიუნინგი',
+    aiManagement: 'AI მართვა',
+    systemsHub: 'სისტემების ჰაბი',
+    knowledgeBase: 'ცოდნის ბაზა',
+    statutoryReports: 'ფინანსური ანგარიშგება',
   },
 };
 
@@ -50,15 +60,18 @@ interface AppState {
   toggleSidebarPinned: () => void;
 
   // Financial Context (The Core Spine)
-  selectedCompany: string; // e.g., 'SGG-001'
+  selectedCompany: string;
   setSelectedCompany: (company: string) => void;
-  selectedPeriod: string; // e.g., '2023-11'
-  setSelectedPeriod: (period: string) => void;
-  selectedDepartment: string; // e.g., 'Technical'
+  selectedPeriod: string | null;
+  setSelectedPeriod: (period: string | null) => void;
+  selectedDepartment: string;
   setSelectedDepartment: (dept: string) => void;
+
+  // AI Intelligence
+  dynamicTranslate: (text: string) => Promise<string>;
 }
 
-export const useAppState = create<AppState>((set) => ({
+export const useAppState = create<AppState>((set, get) => ({
   theme: 'dark',
   toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
   language: 'en',
@@ -78,4 +91,19 @@ export const useAppState = create<AppState>((set) => ({
   setSelectedPeriod: (period) => set({ selectedPeriod: period }),
   selectedDepartment: 'All',
   setSelectedDepartment: (dept) => set({ selectedDepartment: dept }),
+
+  dynamicTranslate: async (text: string) => {
+    if (get().language === 'en') return text;
+    try {
+      const res = await fetch('/api/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'translate', text, target_lang: 'ka' })
+      });
+      const data = await res.json();
+      return data.translation || text;
+    } catch (e) {
+      return text;
+    }
+  }
 }));

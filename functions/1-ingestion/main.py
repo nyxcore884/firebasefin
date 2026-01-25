@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import functions_framework
 import os
 
@@ -91,3 +92,7 @@ def validate_sgg_file(bucket_name, file_name):
         print(f"[INGESTION-ERROR] Could not read or validate file {file_name}. Error: {e}")
         return False
 
+=======
+# DEPRECATED
+# See functions/8-data-ingestion for active service.
+>>>>>>> Stashed changes

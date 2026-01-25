@@ -1,4 +1,4 @@
-import { FinancialNode } from "../types/structure";
+
 
 export interface Transaction {
     id: string;

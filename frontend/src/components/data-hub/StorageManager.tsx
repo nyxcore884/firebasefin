@@ -161,15 +161,21 @@ export default function StorageManager({ onIngestionSuccess, className }: Storag
         }, 800);
 
         try {
+<<<<<<< Updated upstream
             const API_URL = "http://127.0.0.1:5001/studio-9381016045-4d625/us-central1/ingest_data";
+=======
+            // Use the standard orchestrator
+            const API_URL = "/api/process-transaction";
+>>>>>>> Stashed changes
 
             const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    action: 'ingest',
                     storagePath: selectedFile.fullPath,
                     bucket: selectedFile.ref.bucket,
-                    context: instruction // Pass instruction to backend (even if unused yet)
+                    context: instruction
                 })
             });
 

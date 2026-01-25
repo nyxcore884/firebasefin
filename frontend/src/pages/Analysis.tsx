@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { fetchFinancialTruth } from '@/lib/api-client';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -19,7 +20,6 @@ import {
   TableRow
 } from '@/components/ui/table';
 import {
-  Plus,
   Download,
   Filter,
   MoreHorizontal,
@@ -28,8 +28,12 @@ import {
   ArrowDownRight,
   ArrowRight,
   Server,
-  Database
+  Database,
+  TrendingUp,
+  Activity
 } from 'lucide-react';
+import ConsolidationManager from '@/components/analysis/ConsolidationManager';
+import WaterfallChart from '@/components/analytics/WaterfallChart';
 import {
   Card,
   CardContent,
@@ -54,6 +58,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAppState, translations } from '@/hooks/use-app-state';
+import { AIText } from '@/components/common/AIText';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
@@ -173,12 +178,15 @@ function SystemIntegrationCard({ integrationStatus }: { integrationStatus: strin
 
 // ----------------------------------------------------------------------
 
-const Analysis = () => {
+export default function Analysis() {
+  const { selectedCompany, selectedPeriod, selectedDepartment, currency } = useAppState();
+  const [viewMode, setViewMode] = useState<'entity' | 'department' | 'consolidation'>('entity');
+  const [loading, setLoading] = useState(false);
+  const [truth, setTruth] = useState<any>(null);
+  const [varianceData, setVarianceData] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [varianceData, setVarianceData] = useState<VarianceDataItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false); // New State
-  const { language, currency } = useAppState();
+  const [expanded, setExpanded] = useState(false);
+  const { language } = useAppState(); // Keep language for translations
   const t = translations[language];
 
   const handleDownload = (format: 'CSV' | 'Excel' | 'PDF') => {
@@ -232,16 +240,38 @@ const Analysis = () => {
     }
   };
 
+  // ...
+
   useEffect(() => {
+    if (viewMode === 'consolidation') return; // Skip fetching variance data if in consolidation mode
+
     const fetchVarianceData = async () => {
       try {
         setLoading(true);
+<<<<<<< Updated upstream
         // Using local Firebase Emulator endpoint
         const response = await fetch('http://127.0.0.1:5001/firebasefin-main/us-central1/process_transaction/data');
         if (!response.ok) throw new Error('Network response was not ok');
+=======
+        // Using Financial Truth (Single Source)
+        const truthData = await fetchFinancialTruth(selectedCompany, selectedPeriod || '', currency, selectedDepartment);
+        setTruth(truthData);
+>>>>>>> Stashed changes
 
-        const data = await response.json();
+        if (truthData && truthData.breakdown) {
+          // Transform Breakdown from Truth Object
+          const processedData: VarianceDataItem[] = truthData.breakdown.map((item: any, idx: number) => {
+            const budget = item.budget || 0;
+            const actual = item.actual || 0;
+            const variance = budget - actual; // Standard variance? Or Actual - Budget? 
+            // Standard Expense Variance (Favorable) = Budget - Actual.
+            // Standard Revenue Variance (Favorable) = Actual - Budget.
+            // Assuming logic based on semantic key? 
+            // For generic table, let's stick to simple algebraic Budget - Actual for now, or use mapped logic.
+            // But `item` here might not have semantic key easily accessible if we didn't include it or mapped it.
+            // Materializer includes `semantic_key`.
 
+<<<<<<< Updated upstream
         // Map backend data to frontend structure if needed, or use directly
         // Backend now returns the correct structure, so we just ensure types
         const processedData: VarianceDataItem[] = data.map((item: any) => ({
@@ -254,9 +284,33 @@ const Analysis = () => {
           status: item.status,
           category: item.category || 'General'
         }));
+=======
+            let computedVar = budget - actual;
+            if (item.semantic_key === 'REVENUE') {
+              computedVar = actual - budget;
+            }
 
-        setVarianceData(processedData);
+            const pct = budget > 0 ? ((computedVar / budget) * 100) : 0;
+>>>>>>> Stashed changes
+
+            return {
+              id: `article-${idx}`,
+              article: item.article, // e.g. "Office Supplies"
+              budget: budget,
+              actual: actual,
+              variance: computedVar,
+              pct: pct,
+              status: computedVar < 0 ? 'destructive' : 'success', // Simplified status
+              category: item.semantic_key
+            };
+          });
+
+          setVarianceData(processedData);
+        } else {
+          setVarianceData([]);
+        }
       } catch (error) {
+<<<<<<< Updated upstream
         console.error("Failed to fetch variance data:", error);
         toast.error('Failed to connect to Financial Engine. Loading demo data.');
 
@@ -270,13 +324,18 @@ const Analysis = () => {
           { id: 'HR-001', article: 'Employee Training', budget: 10000, actual: 11000, variance: -1000, pct: -10.0, status: 'critical', category: 'Human Resources' },
           { id: 'OPEX-003', article: 'Travel Expenses', budget: 7500, actual: 6000, variance: 1500, pct: 20.0, status: 'success', category: 'Operating Expenses' },
         ]);
+=======
+        console.error("Failed to fetch truth data:", error);
+        toast.error('Failed to connect to Financial Engine.');
+        setVarianceData([]);
+>>>>>>> Stashed changes
       } finally {
         setLoading(false);
       }
     };
 
     fetchVarianceData();
-  }, []);
+  }, [selectedCompany, selectedPeriod, selectedDepartment, viewMode, currency]);
 
   const formatCurrency = (val: number) => {
     const rate = 2.7;
@@ -304,17 +363,18 @@ const Analysis = () => {
 
 
   return (
-    <div className="space-y-8 pb-12 w-full animate-in fade-in duration-500">
+    <div className="space-y-8 pb-12 w-full p-6 lg:p-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-glow">{t.analysis}</h1>
-          <p className="text-muted-foreground mt-1">Comparative study of Budget vs Actual performance across cost centers.</p>
+          <h1 className="text-3xl font-black tracking-tight text-glow flex items-center gap-2 uppercase italic">
+            <AIText>Financial Analysis</AIText>
+          </h1>
+          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 flex items-center gap-2 mt-1">
+            <Activity className="h-3 w-3" /> {(t as any)[selectedCompany] || selectedCompany} • {selectedPeriod}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Integrated Data Mapping & System Status */}
-          <DataMappingTable data={varianceData} />
-          <SystemIntegrationCard integrationStatus="Connected" />
 
+<<<<<<< Updated upstream
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">
@@ -427,105 +487,285 @@ const Analysis = () => {
                 {expanded ? 'Collapse' : 'Expand'} Detailed View
               </Button>
             </div>
+=======
+        <div className="flex items-center gap-4">
+          <div className="flex bg-primary/5 dark:bg-muted/30 p-1 rounded-lg border border-primary/10 dark:border-white/5 shadow-vivid">
+            <button
+              onClick={() => setViewMode('entity')}
+              className={cn(
+                "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-md transition-all",
+                viewMode === 'entity' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "hover:bg-primary/5 text-muted-foreground"
+              )}
+            >
+              <AIText>Budget vs Actual</AIText>
+            </button>
+            <button
+              onClick={() => setViewMode('consolidation')}
+              className={cn(
+                "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-md transition-all",
+                viewMode === 'consolidation' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "hover:bg-primary/5 text-muted-foreground"
+              )}
+            >
+              <AIText>Intercompany Consolidation</AIText>
+            </button>
+>>>>>>> Stashed changes
           </div>
-        </CardHeader>
-        <div className="overflow-x-auto p-1">
-          {expanded && (
-            <div className="p-4 bg-background/50 border-b border-border/50">
-              <BudgetArticleTree data={varianceData} expanded={true} />
-            </div>
+
+          <div className="flex gap-2">
+            {viewMode === 'entity' && (
+              <>
+                <DataMappingTable data={varianceData} />
+                <SystemIntegrationCard integrationStatus={{ status: 'Active', connectedSystems: 'SAP S/4HANA, CitiDirect' }} />
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="gap-2 border-dashed">
+                      <Download className="h-4 w-4" /> Export
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-40 p-2" align="end">
+                    <div className="grid gap-1">
+                      <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => handleDownload('CSV')}>
+                        CSV
+                      </Button>
+                      <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => handleDownload('Excel')}>
+                        Excel
+                      </Button>
+                      <Button variant="ghost" size="sm" className="justify-start font-normal" onClick={() => handleDownload('PDF')}>
+                        PDF
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {viewMode === 'consolidation' ? (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <ConsolidationManager />
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Summary Stats */}
+            {loading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i} className="glass-vivid shadow-vivid border-primary/10 dark:border-white/5">
+                  <CardHeader className="pb-2">
+                    <Skeleton className="h-3 w-24" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-7 w-32" />
+                    <Skeleton className="h-3 w-28 mt-2" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <>
+                <Card className="glass-vivid border-primary/10 overflow-hidden group relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <CardHeader className="pb-2 relative z-10">
+                    <CardTitle className="text-[9px] uppercase font-black tracking-widest text-muted-foreground/60 italic"><AIText>Total Budget</AIText></CardTitle>
+                  </CardHeader>
+                  <CardContent className="relative z-10">
+                    <div className="text-2xl font-black">{formatCurrency(summaryStats.totalBudget)}</div>
+                    <p className="text-[9px] font-bold text-muted-foreground/40 mt-1 uppercase tracking-widest"><AIText>Planned for fiscal year</AIText></p>
+                  </CardContent>
+                </Card>
+                <Card className="glass-vivid border-emerald-500/10 overflow-hidden group relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <CardHeader className="pb-2 relative z-10">
+                    <CardTitle className="text-[9px] uppercase font-black tracking-widest text-muted-foreground/60 italic"><AIText>Total Actual</AIText></CardTitle>
+                  </CardHeader>
+                  <CardContent className="relative z-10">
+                    <div className="text-2xl font-black">{formatCurrency(summaryStats.totalActual)}</div>
+                    <div className={cn("flex items-center gap-1.5 mt-1", summaryStats.totalActual > summaryStats.totalBudget ? "text-rose-500" : "text-emerald-500")}>
+                      <ArrowDownRight className="h-3 w-3" />
+                      <span className={summaryStats.totalActual > summaryStats.totalBudget ? "text-rose-500 font-black text-[9px] uppercase" : "text-emerald-500 font-black text-[9px] uppercase"}>
+                        {(((summaryStats.totalActual - summaryStats.totalBudget) / summaryStats.totalBudget) * 100).toFixed(1)}%
+                        <AIText>{summaryStats.totalActual > summaryStats.totalBudget ? ' Over Budget' : ' Under Budget'}</AIText>
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="glass-vivid border-primary/10 dark:border-white/5 shadow-vivid">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-[9px] uppercase font-black tracking-widest text-muted-foreground/60 italic"><AIText>Net Variance</AIText></CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={cn("text-2xl font-black", summaryStats.netVariance < 0 ? "text-rose-500" : "text-emerald-500")}>
+                      {summaryStats.netVariance < 0 ? '-' : ''}{formatCurrency(summaryStats.netVariance)}
+                    </div>
+                    <p className="text-[9px] font-bold text-muted-foreground/40 mt-1 uppercase tracking-widest"><AIText>{`${summaryStats.netVariance < 0 ? 'Unfavorable' : 'Favorable'} gap detected`}</AIText></p>
+                  </CardContent>
+                </Card>
+                <Card className="glass-vivid border-emerald-500/10 dark:border-white/5 shadow-vivid">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-[9px] uppercase font-black tracking-widest text-muted-foreground/60 italic"><AIText>Forecast Drift</AIText></CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-black text-emerald-500">0.8%</div>
+                    <p className="text-[9px] font-bold text-muted-foreground/40 mt-1 uppercase tracking-widest">{language === 'en' ? 'Within confidence interval' : 'ნდობის ინტერვალში'}</p>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
+
+          {!loading && truth?.waterfall?.length > 0 && (
+            <Card className="glass-vivid border-primary/10 shadow-vivid p-6">
+              <CardHeader className="p-0 mb-4">
+                <CardTitle className="text-sm font-black uppercase italic tracking-widest"><AIText>Variance Bridge (Waterfall)</AIText></CardTitle>
+                <CardDescription className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">
+                  <AIText>Attribution of net variance across major expense/revenue categories.</AIText>
+                </CardDescription>
+              </CardHeader>
+              <WaterfallChart
+                data={truth.waterfall}
+                budgetTotal={summaryStats.totalBudget}
+                actualTotal={summaryStats.totalActual}
+              />
+            </Card>
           )}
 
-          <Table>
-            <TableHeader className="bg-muted/30">
-              <TableRow>
-                <TableHead className="w-[200px] md:w-[250px]">Budget Article</TableHead>
-                <TableHead className="text-right">Planned Budget</TableHead>
-                <TableHead className="text-right">Actual Amount</TableHead>
-                <TableHead className="text-right">Variance</TableHead>
-                <TableHead className="text-center">Variance %</TableHead>
-                <TableHead className="text-center">Status</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array.from({ length: 7 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24 float-right" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24 float-right" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24 float-right" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16 mx-auto" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-20 mx-auto" /></TableCell>
-                    <TableCell></TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                filteredData.map((item) => (
-                  <TableRow key={item.id} className="hover:bg-muted/20 transition-colors group">
-                    <TableCell className="font-semibold">{item.article}</TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground">
-                      {formatCurrency(item.budget)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-bold">
-                      {formatCurrency(item.actual)}
-                    </TableCell>
-                    <TableCell className={cn(
-                      "text-right font-mono font-semibold",
-                      item.variance < 0 ? "text-rose-500" : "text-emerald-500"
-                    )}>
-                      {item.variance < 0 ? '-' : '+'}{formatCurrency(item.variance)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {item.pct > 0 ? (
-                          <ArrowDownRight className="h-3 w-3 text-emerald-500" />
-                        ) : (
-                          <ArrowUpRight className="h-3 w-3 text-rose-500" />
-                        )}
-                        <span className={item.pct < 0 ? "text-rose-500 font-medium" : "text-emerald-500 font-medium"}>
-                          {Math.abs(item.pct).toFixed(1)}%
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={
-                        item.status === 'success' ? 'success' :
-                          item.status === 'warning' ? 'warning' : 'destructive'
-                      } className="capitalize">{item.status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="glass-card">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem className="gap-2">
-                            <ArrowRight className="h-4 w-4" /> View Transactions
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2">
-                            <Search className="h-4 w-4" /> Drill Down
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-rose-500 gap-2">
-                            Flag Anomaly
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
+          <Card className="glass-vivid overflow-hidden shadow-vivid border-primary/10 dark:border-white/5">
+            <CardHeader className="border-b border-primary/10 dark:border-border/50 bg-primary/5 dark:bg-muted/10">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="text-sm font-black uppercase italic tracking-widest"><AIText>Budget Articles Comparison</AIText></CardTitle>
+                  <CardDescription className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">Line-by-line actual vs budget variance breakdown.</CardDescription>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Filter articles..."
+                      className="pl-9 w-64 bg-background/50 border-primary/10"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
+                    <Filter className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={expanded ? "secondary" : "outline"}
+                    size="sm"
+                    className="gap-2 hidden sm:flex transition-all shadow-vivid"
+                    onClick={() => setExpanded(!expanded)}
+                  >
+                    {expanded ? <ArrowDownRight className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
+                    {expanded ? 'Collapse' : 'Expand'} Detailed View
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <div className="overflow-x-auto p-1">
+              {expanded && (
+                <div className="p-4 bg-background/50 border-b border-primary/10">
+                  <BudgetArticleTree data={varianceData} expanded={true} />
+                </div>
               )}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
+              <Table>
+                <TableHeader className="bg-primary/5 dark:bg-muted/30">
+                  <TableRow>
+                    <TableHead className="w-[200px] md:w-[250px]">Budget Article</TableHead>
+                    <TableHead className="text-right">Planned Budget</TableHead>
+                    <TableHead className="text-right">Actual Amount</TableHead>
+                    <TableHead className="text-right">Variance</TableHead>
+                    <TableHead className="text-center">Variance %</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    Array.from({ length: 7 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-24 float-right" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-24 float-right" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-24 float-right" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-16 mx-auto" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20 mx-auto" /></TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    filteredData.map((item) => (
+                      <TableRow key={item.id} className="hover:bg-muted/20 transition-colors group">
+                        <TableCell className="font-semibold">{item.article}</TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">
+                          {formatCurrency(item.budget)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-bold">
+                          {formatCurrency(item.actual)}
+                        </TableCell>
+                        <TableCell className={cn(
+                          "text-right font-mono font-semibold",
+                          item.variance < 0 ? "text-rose-500" : "text-emerald-500"
+                        )}>
+                          {item.variance < 0 ? '-' : '+'}{formatCurrency(item.variance)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {item.pct > 0 ? (
+                              <ArrowDownRight className="h-3 w-3 text-emerald-500" />
+                            ) : (
+                              <ArrowUpRight className="h-3 w-3 text-rose-500" />
+                            )}
+                            <span className={item.pct < 0 ? "text-rose-500 font-medium" : "text-emerald-500 font-medium"}>
+                              {Math.abs(item.pct).toFixed(1)}%
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant={
+                            item.status === 'success' ? 'success' :
+                              item.status === 'warning' ? 'warning' : 'destructive'
+                          } className="capitalize">{item.status}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="glass-card">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem className="gap-2">
+                                <ArrowRight className="h-4 w-4" /> View Transactions
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="gap-2">
+                                <Search className="h-4 w-4" /> Drill Down
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setViewMode('entity')}
+                              >
+                                Entity View
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setViewMode('consolidation')}
+                              >
+                                Consolidation View
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </>
+      )}
     </div>
   );
-};
-
-export default Analysis;
+}

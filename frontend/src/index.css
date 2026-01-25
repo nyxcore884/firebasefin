@@ -2,28 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Premium "Indigo-Cloud" - Elite & Vibrant Anti-Grey Palette */
+    --background: 230 100% 98.5%; /* Luminous Indigo tint */
+    --foreground: 226 50% 12%; /* Deep Indigo Navy */
+    
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 226 50% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --popover-foreground: 226 50% 12%;
+    
+    /* Primary: Electric Indigo */
+    --primary: 238 100% 63.3%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary/Accent: Luminous Cyan */
+    --secondary: 191 100% 48%;
+    --secondary-foreground: 226 50% 12%;
+    
+    /* Muted/Borders - Using vivid cloud tints instead of dead greys */
+    --muted: 235 60% 97%;
+    --muted-foreground: 238 30% 45%;
+    --accent: 238 100% 96.5%;
+    --accent-foreground: 238 100% 55%;
+    
+    --destructive: 0 91.3% 59.4%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    
+    --border: 238 60% 94%;
+    --input: 238 60% 94%;
+    --ring: 238 100% 63.3%;
+    --radius: 1.5rem; /* Smoother, high-end radius */
   }
 
   .dark {
@@ -50,10 +66,12 @@
 
   * {
     @apply border-border;
+    font-style: normal !important;
   }
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
   }
 
   /* Custom Scrollbar */
@@ -90,7 +108,7 @@
 
   /* === Glassmorphism Components === */
   .glass-sidebar {
-    @apply border-r bg-background/60 backdrop-blur-xl transition-all duration-300;
+    @apply border-r border-primary/10 bg-background/80 backdrop-blur-2xl transition-all duration-300;
   }
 
   .glass-sidebar:hover {
@@ -101,13 +119,21 @@
     @apply bg-black/20 border-white/10;
   }
 
-  .glass-header {
-    @apply bg-background/80 backdrop-blur-lg border-b border-border/40;
+  /* Vivid Light Glass - Replaced greyish glass with Indigo-Tinted Luminous glass */
+  .glass-card, .glass-vivid {
+    @apply bg-white/70 backdrop-blur-2xl border border-white shadow-vivid ring-1 ring-primary/5;
+  }
+  
+  .dark .glass-card, .dark .glass-vivid {
+    @apply bg-slate-950/40 border-white/10 shadow-2xl ring-white/5;
   }
 
-  /* Standard Glass Card */
-  .glass-card {
-    @apply bg-white/5 backdrop-blur-md border border-white/10 shadow-xl;
+  .glass-indigo {
+    @apply bg-primary/5 backdrop-blur-3xl border border-primary/10 shadow-vivid;
+  }
+
+  .text-glow {
+    text-shadow: 0 0 20px hsl(var(--primary) / 0.5), 0 0 40px hsl(var(--primary) / 0.2);
   }
 
   /* PREMIUM Glass Layering (Ultra-Translucent) */
@@ -135,6 +161,60 @@
     background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #0f172a);
     background-size: 400% 400%;
     animation: aurora 15s ease infinite;
+  }
+
+  .ai-gradient-bg {
+    background: radial-gradient(circle at 50% -20%, hsl(var(--primary) / 0.15), transparent 70%),
+                radial-gradient(circle at 0% 100%, hsl(var(--secondary) / 0.1), transparent 50%),
+                radial-gradient(circle at 100% 100%, hsl(var(--primary) / 0.1), transparent 50%);
+  }
+
+  .bg-noise {
+    background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+    background-repeat: repeat;
+    background-size: 200px;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+
+  /* === Enhanced Depth Utilities === */
+  .glass-frosted-light {
+    @apply bg-white/40 dark:bg-white/5 backdrop-blur-2xl border border-white/20 dark:border-white/10;
+    box-shadow: 
+      0 4px 6px -1px rgb(0 0 0 / 0.05), 
+      0 2px 4px -2px rgb(0 0 0 / 0.05),
+      inset 0 0 20px 0 rgba(255, 255, 255, 0.5);
+  }
+  .dark .glass-frosted-light {
+    box-shadow: 
+      0 10px 15px -3px rgba(0, 0, 0, 0.3),
+      0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  }
+
+  .shadow-premium {
+    box-shadow: 
+      0 20px 25px -5px rgb(0 0 0 / 0.05), 
+      0 8px 10px -6px rgb(0 0 0 / 0.05),
+      0 0 0 1px rgba(0, 0, 0, 0.01);
+  }
+  .dark .shadow-premium {
+    box-shadow: 
+      0 25px 50px -12px rgba(0, 0, 0, 0.5),
+      0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+
+  /* Premium Vivid Glow Shadows */
+  .shadow-vivid {
+    box-shadow: 
+      0 30px 60px -12px rgba(99, 102, 241, 0.12),
+      0 18px 36px -18px rgba(0, 0, 0, 0.15),
+      0 0 0 1px rgba(99, 102, 241, 0.05);
+  }
+
+  .dark .shadow-vivid {
+    box-shadow: 
+      0 30px 60px -12px rgba(0, 0, 0, 0.5),
+      0 0 0 1px rgba(255, 255, 255, 0.05);
   }
 }
 

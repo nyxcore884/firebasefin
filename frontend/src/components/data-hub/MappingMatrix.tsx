@@ -76,6 +76,32 @@ const MappingMatrix = () => {
         }
     };
 
+<<<<<<< Updated upstream
+=======
+    const applyMappings = async () => {
+        setIsSaving(true);
+        try {
+            // Trigger the transformation/logic engine (via API)
+            const res = await fetch('/api/process-transaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'mapping/apply', mappings })
+            });
+
+            if (res.ok) {
+                toast.success("Mappings applied! Re-run ingestion to see changes.");
+            } else {
+                throw new Error("Mapping engine failed");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to apply mappings.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+>>>>>>> Stashed changes
     // Simulator State (Updated for Phase 12)
     const [simEntity, setSimEntity] = useState("SOCAR Georgia");
     const [simGlAccount, setSimGlAccount] = useState("4001");
@@ -118,6 +144,40 @@ const MappingMatrix = () => {
         } catch (error) {
             console.error("Parsing error", error);
             toast.error("Failed to parse mapping file. Ensure it is a valid Excel/CSV.");
+        }
+    };
+
+    const handleAIMapping = async () => {
+        if (mappings.length === 0) {
+            toast.warning("No sample data to analyze");
+            return;
+        }
+        setIsSaving(true);
+        try {
+            const res = await fetch('/api/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'map_data',
+                    sample: mappings.slice(0, 5), // Send first 5 as sample
+                    userId: 'executive-cfo'
+                })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                const aiMapping = data.mapping;
+                // Merge AI mapping into existing mappings or show preview
+                toast.success("Gemini induced a new mapping schema!");
+                console.log("AI Induced Mapping:", aiMapping);
+                // Update mappings state based on AI response if needed
+            } else {
+                throw new Error("AI Mapping failed");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("AI Mapping induction failed.");
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -179,6 +239,17 @@ const MappingMatrix = () => {
                             <CardTitle className="text-sm font-medium flex items-center gap-2">
                                 <Layers className="h-4 w-4 text-primary" /> Mapping Configuration
                             </CardTitle>
+<<<<<<< Updated upstream
+=======
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={handleAIMapping} disabled={isSaving}>
+                                    {isSaving ? "Thinking..." : "AI Induce Rules"}
+                                </Button>
+                                <Button size="sm" onClick={applyMappings} disabled={isSaving}>
+                                    {isSaving ? "Applying..." : "Sync Rules"}
+                                </Button>
+                            </div>
+>>>>>>> Stashed changes
                         </CardHeader>
                         <CardContent>
                             <Tabs defaultValue="rules">

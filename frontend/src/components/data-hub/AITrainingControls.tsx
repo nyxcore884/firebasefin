@@ -24,11 +24,29 @@ const AITrainingControls = () => {
 
     const handleSave = async () => {
         setSaving(true);
-        // Simulate Backend Call
-        setTimeout(() => {
+        try {
+            const res = await fetch('/api/process-transaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'ml_config',
+                    sub_action: 'update',
+                    config: {
+                        trainingSets: trainingSets.filter(s => s.included).map(s => s.id)
+                    }
+                })
+            });
+            if (res.ok) {
+                toast.success("AI Training Configuration Synchronized");
+            } else {
+                throw new Error("Sync failed");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to sync training controls");
+        } finally {
             setSaving(false);
-            toast.success("AI Training Configuration Saved");
-        }, 1000);
+        }
     };
 
     return (

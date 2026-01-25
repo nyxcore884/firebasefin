@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, CreditCard, Workflow } from 'lucide-react';
+import { Building2, CreditCard, Workflow, BrainCircuit, Activity } from 'lucide-react';
+import { AIText } from '@/components/common/AIText';
 
 // Sub-components
 // PipelineMonitor Removed
@@ -14,29 +16,34 @@ import { Building2, CreditCard, Workflow } from 'lucide-react';
 import DatasetRegistry from '@/components/data-hub/DatasetRegistry';
 import MappingMatrix from '@/components/data-hub/MappingMatrix';
 import AITrainingControls from '@/components/data-hub/AITrainingControls';
+import VertexAIPipelines from '@/components/data-hub/VertexAIPipelines';
+import FinancialOps from '@/components/data-hub/FinancialOps';
+import ChartOfAccounts from '@/components/data-hub/ChartOfAccounts';
+import DataExplorer from '@/components/data-hub/DataExplorer';
 
 import { FinancialHierarchy } from '@/components/data-hub/FinancialHierarchy';
+<<<<<<< Updated upstream
 import { PaymentTree } from '@/components/data-hub/PaymentTree';
 import { MOCK_COMPANY_STRUCTURE, PAYMENT_TREE } from '@/data/mock-engine';
+=======
+import PaymentMatrix from '@/components/analysis/PaymentMatrix';
+>>>>>>> Stashed changes
 import { PrognosisDashboard } from '@/components/prognosis/PrognosisDashboard';
 import StorageManager from '@/components/data-hub/StorageManager';
 import FinancialInsightsDashboard from '@/components/data-hub/FinancialInsightsDashboard';
 
 const DataHub = () => {
   const [dashboardView, setDashboardView] = useState<'executive' | 'finance' | 'department'>('executive');
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleIngestionSuccess = (data: any) => {
-    // Switch to insights view to show the results in the main dashboard as well
-    // slightly delayed to allow the user to see the success animation in the modal first
     console.log("Ingestion Success Triggered", data);
-
-    // We could automatically switch tabs, but the user is viewing the dashboard inside the modal now.
-    // So we just toast or update local state if needed.
-    // For now, staying on the same tab is better UX as the modal handles the view.
-    toast.info("Dashboard updated with new data");
+    setRefreshKey(prev => prev + 1);
+    toast.success("Intelligence engine updated with new ledger entries");
   };
 
   return (
+<<<<<<< Updated upstream
     <div className="space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-5 duration-700">
       <Tabs defaultValue="insights" className="space-y-6">
         <div className="flex items-center justify-between">
@@ -44,46 +51,69 @@ const DataHub = () => {
             <h1 className="text-3xl font-bold tracking-tight text-foreground/90 flex items-center gap-3">
               <span className="bg-primary/10 p-2 rounded-lg"><Upload className="h-6 w-6 text-primary" /></span>
               Data Hub
+=======
+    <div className="space-y-8 pb-12 w-full p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
+      <Tabs defaultValue="insights" className="space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-glow uppercase italic">
+              <AIText>Strategic Ledger Nexus</AIText>
+>>>>>>> Stashed changes
             </h1>
-            <p className="text-muted-foreground text-lg">Central Command Console for Financial Data Intelligence.</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 flex items-center gap-2 mt-1">
+              <Activity className="h-3 w-3" /> <AIText>Financial Operations & Governance Gateway</AIText>
+            </p>
           </div>
-          <TabsList className="bg-background/50 border border-white/5 p-1 h-auto flex-wrap justify-start gap-1">
-            <TabsTrigger value="insights" className="text-xs px-3 bg-emerald-500/10 text-emerald-500 data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400 border border-emerald-500/20">Insights & Dashboards</TabsTrigger>
-            <TabsTrigger value="ingestion" className="text-xs px-3">Ingestion Zone</TabsTrigger>
-            <TabsTrigger value="datasets" className="text-xs px-3">Dataset Registry</TabsTrigger>
-            <TabsTrigger value="hierarchy" className="text-xs px-3 flex gap-2"><Building2 className="h-3 w-3" /> Hierarchy</TabsTrigger>
-            <TabsTrigger value="payments" className="text-xs px-3 flex gap-2"><CreditCard className="h-3 w-3" /> Payments</TabsTrigger>
-            <TabsTrigger value="mapping" className="text-xs px-3 flex gap-2"><Workflow className="h-3 w-3" /> Smart Mapping</TabsTrigger>
-            <TabsTrigger value="ai-controls" className="text-xs px-3">AI Controls</TabsTrigger>
+          <TabsList className="bg-primary/5 dark:bg-slate-900/40 p-1 rounded-xl border border-primary/10 dark:border-white/5 backdrop-blur-xl h-auto flex-wrap justify-start gap-1 shadow-vivid">
+            <TabsTrigger value="insights" className="text-[10px] font-black uppercase tracking-widest px-6 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg transition-all shadow-lg shadow-primary/20"><AIText>Intelligence</AIText></TabsTrigger>
+            <TabsTrigger value="operations" className="text-[10px] font-black uppercase tracking-widest px-6 py-2.5 rounded-lg hover:bg-primary/5 transition-colors"><AIText>Operations</AIText></TabsTrigger>
+            <TabsTrigger value="database" className="text-[10px] font-black uppercase tracking-widest px-6 py-2.5 rounded-lg hover:bg-primary/5 transition-colors"><AIText>Database</AIText></TabsTrigger>
+            <TabsTrigger value="accounts" className="text-[10px] font-black uppercase tracking-widest px-6 py-2.5 rounded-lg hover:bg-primary/5 transition-colors"><AIText>Accounting</AIText></TabsTrigger>
+            <TabsTrigger value="ingestion" className="text-[10px] font-black uppercase tracking-widest px-6 py-2.5 rounded-lg hover:bg-primary/5 transition-colors"><AIText>Pipeline</AIText></TabsTrigger>
+            <TabsTrigger value="engineering" className="text-[10px] font-black uppercase tracking-widest px-6 py-2.5 rounded-lg hover:bg-primary/5 transition-colors"><AIText>Systems</AIText></TabsTrigger>
           </TabsList>
         </div>
 
-        <TabsContent value="insights" className="space-y-6">
-          <div className="flex justify-end space-x-2 bg-muted/20 p-2 rounded-lg inline-flex self-end">
-            <button
-              onClick={() => setDashboardView('executive')}
-              className={cn("text-xs px-3 py-1.5 rounded-md transition-all", dashboardView === 'executive' ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-background/50 text-muted-foreground")}
-            >
-              Executive View
-            </button>
-            <button
-              onClick={() => setDashboardView('finance')}
-              className={cn("text-xs px-3 py-1.5 rounded-md transition-all", dashboardView === 'finance' ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-background/50 text-muted-foreground")}
-            >
-              Finance Control
-            </button>
-            <button
-              onClick={() => setDashboardView('department')}
-              className={cn("text-xs px-3 py-1.5 rounded-md transition-all", dashboardView === 'department' ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-background/50 text-muted-foreground")}
-            >
-              Department
-            </button>
-          </div>
+        {/* --- TABS CONTENT --- */}
 
-          <FinancialInsightsDashboard view={dashboardView} />
+        <TabsContent value="insights" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="flex items-center gap-1.5 bg-background/50 dark:bg-slate-950/40 p-1.5 rounded-xl border border-primary/10 dark:border-white/5 backdrop-blur-md w-fit shadow-vivid">
+            {[
+              { id: 'executive', label: 'Executive' },
+              { id: 'finance', label: 'Finance' },
+              { id: 'department', label: 'Dept' }
+            ].map((v) => (
+              <button
+                key={v.id}
+                onClick={() => setDashboardView(v.id as any)}
+                className={cn(
+                  "px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] transition-all duration-300",
+                  dashboardView === v.id
+                    ? "bg-primary text-white shadow-lg shadow-primary/30"
+                    : "text-muted-foreground hover:text-primary hover:bg-primary/5"
+                )}
+              >
+                <AIText>{v.label}</AIText>
+              </button>
+            ))}
+          </div>
+          <FinancialInsightsDashboard key={refreshKey} view={dashboardView} />
+        </TabsContent>
+
+        <TabsContent value="operations" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <FinancialOps />
+        </TabsContent>
+
+        <TabsContent value="database" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <DataExplorer />
+        </TabsContent>
+
+        <TabsContent value="accounts" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <ChartOfAccounts />
         </TabsContent>
 
         <TabsContent value="ingestion" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+<<<<<<< Updated upstream
           <div className="grid grid-cols-1 gap-6">
             <div className="space-y-2">
               <h3 className="text-lg font-medium">Data Ingestion Pipeline</h3>
@@ -119,34 +149,49 @@ const DataHub = () => {
 
         <TabsContent value="storage" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+=======
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+>>>>>>> Stashed changes
             <div className="lg:col-span-2">
-              <StorageManager />
+              <StorageManager onIngestionSuccess={handleIngestionSuccess} />
             </div>
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Storage Usage</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs">
-                        <span>Used Space</span>
-                        <span className="font-bold">245 MB</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full">
-                        <div className="h-2 bg-blue-500 rounded-full" style={{ width: '12%' }}></div>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Standard Tier. Auto-archiving enabled for files older than 90 days.</p>
+            <div className="space-y-6">
+              <Card className="glass-vivid border-primary/20 overflow-hidden relative group p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <Workflow className="h-5 w-5 text-primary" />
+                  <h3 className="text-xs font-black uppercase tracking-widest"><AIText>Pipeline Status</AIText></h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Service Health</span>
+                    <Badge variant="outline" className="text-emerald-500 border-emerald-500/20 bg-emerald-500/5 text-[8px] font-black">ACTIVE</Badge>
                   </div>
-                </CardContent>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Cloud Storage</span>
+                    <span className="text-[10px] font-black text-primary">Connected</span>
+                  </div>
+                </div>
               </Card>
+              <DatasetRegistry />
             </div>
           </div>
         </TabsContent>
+
+        <TabsContent value="engineering" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+          <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <AITrainingControls />
+              <VertexAIPipelines />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <MappingMatrix />
+              <FinancialHierarchy />
+            </div>
+          </div>
+        </TabsContent>
+
       </Tabs>
-    </div >
+    </div>
   );
 };
 

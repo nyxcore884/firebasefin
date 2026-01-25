@@ -101,3 +101,33 @@ def get_learned_facts(limit: int = 3) -> str:
         return "Recall these recent learnings:\n" + "\n".join([f"- {f}" for f in facts])
     except Exception as e:
         return ""
+
+def semantic_context_lookup(query: str, limit: int = 3) -> str:
+    """
+    Simulates Neural Long-term Memory by finding relevant historical facts.
+    In production, this uses Vertex AI Vector Search.
+    """
+    try:
+        # 1. Extract keywords from query for simple semantic filtering
+        keywords = [w for w in query.lower().split() if len(w) > 4]
+        
+        # 2. Query knowledge base for facts containing keywords
+        # Note: Firestore doesn't support full-text search directly, but we can filter by 'tags' or 'keywords'
+        # For simulation, we'll fetch recent and then filter
+        docs = get_db().collection("ai_knowledge_base").limit(20).stream()
+        
+        relevant_facts = []
+        for doc in docs:
+            data = doc.to_dict()
+            fact = data.get("fact", "").lower()
+            # Heuristic match
+            if any(k in fact for k in keywords):
+                relevant_facts.append(data.get("fact"))
+                
+        if not relevant_facts:
+            return ""
+            
+        return "\n**Institutional Knowledge Memo:**\n" + "\n".join([f"- {f}" for f in relevant_facts[:limit]])
+    except Exception as e:
+        logger.error(f"Semantic lookup failed: {e}")
+        return ""

@@ -3,111 +3,100 @@
     {
       "source": "functions/1-ingestion",
       "codebase": "ingestion",
-      "runtime": "python311",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log"
-      ],
-      "trigger": {
-        "bucket": "raw-financial-data-ingestion"
-      }
+      "runtime": "python311"
     },
     {
       "source": "functions/2-transformation",
       "codebase": "transformation",
-      "runtime": "python311",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log"
-      ],
-      "trigger": {
-        "topic": "files-to-process"
-      }
+      "runtime": "python311"
     },
     {
       "source": "functions/3-analysis",
       "codebase": "analysis",
-      "runtime": "python311",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log"
-      ]
+      "runtime": "python311"
     },
     {
       "source": "functions/4-doc-analysis",
       "codebase": "doc-analysis",
+<<<<<<< Updated upstream
       "runtime": "python311",
       "ignore": [
         "node_modules",
         ".git",
         "firebase-debug.log"
       ]
+=======
+      "runtime": "python311"
+>>>>>>> Stashed changes
     },
     {
       "source": "functions/5-financial-engine",
       "codebase": "financial-engine",
-      "runtime": "python311",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "__pycache__"
-      ]
+      "runtime": "python311"
     },
     {
       "source": "functions/6-prognosis-engine",
       "codebase": "prognosis-engine",
-      "runtime": "python311",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "__pycache__"
-      ]
+      "runtime": "python311"
     },
     {
       "source": "functions/7-dataset-registry",
       "codebase": "dataset-registry",
-      "runtime": "python311",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "__pycache__"
-      ]
+      "runtime": "python311"
     },
     {
       "source": "functions/8-data-ingestion",
       "codebase": "data-ingestion-v2",
-      "runtime": "python311",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "__pycache__"
-      ]
+      "runtime": "python311"
     },
     {
       "source": "functions/9-ai-query",
       "codebase": "ai-query",
-      "runtime": "python311",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "__pycache__"
-      ]
+      "runtime": "python311"
     },
     {
       "source": "functions/10-reporting",
       "codebase": "reporting",
+<<<<<<< Updated upstream
       "runtime": "python311",
       "ignore": [
         "node_modules",
         ".git",
         "__pycache__"
       ]
+=======
+      "runtime": "python311"
+    },
+    {
+      "source": "functions/10-localization-engine",
+      "codebase": "localization",
+      "runtime": "python311"
+    },
+    {
+      "source": "functions/11-governance",
+      "codebase": "governance",
+      "runtime": "python311"
+    },
+    {
+      "source": "functions/11-knowledge-engine",
+      "codebase": "knowledge",
+      "runtime": "python311"
+    },
+    {
+      "source": "functions/12-dashboard-actions",
+      "codebase": "dashboard-actions",
+      "runtime": "python311"
+    },
+    {
+      "source": "functions/12-anomaly-engine",
+      "codebase": "anomalies",
+      "runtime": "python311"
+    },
+    {
+      "source": "functions/15-truth-engine",
+      "codebase": "truth_engine",
+      "runtime": "python311"
+>>>>>>> Stashed changes
     }
   ],
   "hosting": {
@@ -119,6 +108,7 @@
     ],
     "rewrites": [
       {
+<<<<<<< Updated upstream
         "source": "/api/analyze_document",
         "run": {
           "serviceId": "doc-analysis",
@@ -138,6 +128,42 @@
           "serviceId": "registry_api",
           "region": "us-central1"
         }
+=======
+        "source": "/api/process-transaction/**",
+        "function": "process_transaction"
+      },
+      {
+        "source": "/api/process_transaction/**",
+        "function": "process_transaction"
+      },
+      {
+        "source": "/api/financial-truth",
+        "function": "generate_financial_truth"
+      },
+      {
+        "source": "/api/truth",
+        "function": "generate_financial_truth"
+      },
+      {
+        "source": "/api/translate",
+        "function": "translate_ui_batch"
+      },
+      {
+        "source": "/api/knowledge/ingest",
+        "function": "ingest_knowedge_item"
+      },
+      {
+        "source": "/api/knowledge/search",
+        "function": "search_knowledge_base"
+      },
+      {
+        "source": "/api/anomalies/detect",
+        "function": "detect_financial_anomalies"
+      },
+      {
+        "source": "/api/metrics/variance",
+        "function": "process_transaction"
+>>>>>>> Stashed changes
       },
       {
         "source": "/api/ingest",
@@ -148,6 +174,7 @@
       },
       {
         "source": "/api/query",
+<<<<<<< Updated upstream
         "run": {
           "serviceId": "ai_query_api",
           "region": "us-central1"
@@ -159,6 +186,17 @@
           "serviceId": "download_report",
           "region": "us-central1"
         }
+=======
+        "function": "ai_query_api"
+      },
+      {
+        "source": "/functions/ai",
+        "function": "ai_query_api"
+      },
+      {
+        "source": "/api/actions",
+        "function": "dashboard_actions"
+>>>>>>> Stashed changes
       },
       {
         "source": "**",
@@ -167,18 +205,11 @@
     ]
   },
   "firestore": {
-    "rules": "firestore.rules"
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   },
   "storage": {
     "rules": "storage.rules"
-  },
-  "frameworks": {
-    "firebase-frameworks": {
-      "hosting": {
-        "source": "frontend",
-        "web_framework": "react"
-      }
-    }
   },
   "emulators": {
     "auth": {
@@ -203,8 +234,6 @@
       "enabled": true,
       "port": 4000
     },
-    "hub": {
-      "port": 4400
-    }
+    "singleProjectMode": true
   }
 }

@@ -1,9 +1,7 @@
-from firebase_functions import https_fn, options
-import logging
+from firebase_functions import https_fn
 import json
-import os
-from flask import jsonify
 
+<<<<<<< Updated upstream
 # Initialize Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -172,3 +170,8 @@ def generate_prognosis(req: https_fn.Request) -> https_fn.Response:
     except Exception as e:
         logger.error(f"Error processing prognosis: {e}")
         return https_fn.Response(json.dumps({"error": str(e)}), status=500, headers={"Content-Type": "application/json"})
+=======
+@https_fn.on_request()
+def generate_prognosis(req):
+    return https_fn.Response(json.dumps({"error": "Service Deprecated"}), status=410)
+>>>>>>> Stashed changes

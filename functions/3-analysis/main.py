@@ -1,7 +1,7 @@
-import functions_framework
-import json  # lightweight
-# Heavy imports moved inside function
+from firebase_functions import https_fn
+import json
 
+<<<<<<< Updated upstream
 
 # This function should be an HTTP function (callable from frontend)
 @functions_framework.http
@@ -145,3 +145,8 @@ def run_financial_simulation(request):
     except Exception as e:
         print(f"[ANALYSIS-ERROR] {e}")
         return (json.dumps({"error": str(e)}), 500, headers)
+=======
+@https_fn.on_request()
+def run_financial_simulation(req):
+    return https_fn.Response(json.dumps({"error": "Service Deprecated"}), status=410)
+>>>>>>> Stashed changes

@@ -60,58 +60,116 @@ interface QueryResult {
   chartData?: { name: string; value: number; status?: string }[];
 }
 
+<<<<<<< Updated upstream
 const COLORS = ['#22c55e', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6'];
+=======
+
+import { useAppState } from '@/hooks/use-app-state';
+import { speakResponse } from '@/components/ai/VoiceInterface';
+>>>>>>> Stashed changes
 
 const Queries = () => {
+  const { selectedCompany, selectedPeriod, currency } = useAppState();
   const [queryText, setQueryText] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<QueryResult | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
 
-  const executeQuery = async () => {
-    if (!queryText.trim()) {
+  // Intelligent Intent Detection
+  const detectIntent = (query: string): string => {
+    const lowerQuery = query.toLowerCase();
+    if (lowerQuery.includes('anomal') || lowerQuery.includes('unusual') || lowerQuery.includes('outlier')) {
+      return 'anomalies';
+    }
+    if (lowerQuery.includes('simulat') || lowerQuery.includes('forecast') || lowerQuery.includes('predict')) {
+      return 'simulate';
+    }
+    if (lowerQuery.includes('budget') || lowerQuery.includes('variance') || lowerQuery.includes('actual')) {
+      return 'hierarchy';
+    }
+    if (lowerQuery.includes('report') || lowerQuery.includes('summary') || lowerQuery.includes('executive')) {
+      return 'report';
+    }
+    // Default to metrics
+    return 'metrics';
+  };
+
+  const executeQuery = async (customQuery?: string) => {
+    const query = customQuery || queryText;
+    if (!query.trim()) {
       toast.warning('Please enter a query first.');
       return;
     }
 
+    if (customQuery) setQueryText(customQuery);
     setLoading(true);
+
     try {
+<<<<<<< Updated upstream
       // Connect to AI Query backend
       const res = await fetch('http://127.0.0.1:5001/firebasefin-main/us-central1/process_transaction/ai-query', {
+=======
+      console.log(`Asking MURTAZI: "${query}"`);
+
+      // Calls the new 'query_financial_data' endpoint
+      const res = await fetch('/api/query', {
+>>>>>>> Stashed changes
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: queryText })
+        body: JSON.stringify({
+          entity: selectedCompany,
+          period: selectedPeriod,
+          query: query
+        })
       });
 
       if (res.ok) {
         const data = await res.json();
-        setResults(data);
-        toast.success(`Analysis complete. Found ${data.rows?.length || 0} results.`);
+
+        // Data received: { answer: string, source_snapshot: object }
+        const snapshot = data.source_snapshot || {};
+        const metrics = snapshot.metrics || {};
+        const variance = snapshot.variance || {};
+
+        // Build generic table from Truth Object Metrics
+        const rows = Object.entries(metrics).map(([key, value]) => {
+          // check if we have variance info for this metric
+          const varInfo = variance[key];
+          return {
+            article: key,
+            budget: 0, // Forecast not always present in flat metrics
+            actual: Number(value),
+            variance: varInfo ? varInfo.variance : 0,
+            status: varInfo && varInfo.variance < 0 ? 'warning' : 'success' // Simple heuristic
+          };
+        });
+
+        // Chart Data
+        const chartData = rows.map(r => ({
+          name: r.article,
+          value: r.actual,
+          status: r.status
+        }));
+
+        const transformedResults: QueryResult = {
+          summary: data.answer || "No narration provided.",
+          columns: ['Metric', 'Forecast', 'Reference Truth', 'Variance', 'Status'],
+          rows: rows,
+          chartData: chartData
+        };
+
+        setResults(transformedResults);
+        toast.success(`Analysis complete.`);
+
+        if (customQuery) {
+          speakResponse(transformedResults.summary);
+        }
       } else {
         throw new Error('Query failed');
       }
     } catch (err) {
       console.error('Query Error:', err);
-      // Demo fallback data for development
-      setResults({
-        summary: `AI Analysis for: "${queryText}"`,
-        columns: ['Article', 'Budget', 'Actual', 'Variance', 'Status'],
-        rows: [
-          { article: 'Personnel - Salaries', budget: 150000, actual: 162000, variance: -12000, status: 'critical' },
-          { article: 'IT Infrastructure', budget: 80000, actual: 75000, variance: 5000, status: 'success' },
-          { article: 'Marketing Campaigns', budget: 45000, actual: 48500, variance: -3500, status: 'warning' },
-          { article: 'Travel & Entertainment', budget: 20000, actual: 18000, variance: 2000, status: 'success' },
-          { article: 'Office Supplies', budget: 8000, actual: 9200, variance: -1200, status: 'warning' },
-        ],
-        chartData: [
-          { name: 'Personnel', value: 12000, status: 'critical' },
-          { name: 'IT', value: -5000, status: 'success' },
-          { name: 'Marketing', value: 3500, status: 'warning' },
-          { name: 'Travel', value: -2000, status: 'success' },
-          { name: 'Office', value: 1200, status: 'warning' },
-        ]
-      });
-      toast.info('Using demo data (API unavailable)');
+      toast.error('AI Service Unavailable');
     } finally {
       setLoading(false);
     }
@@ -127,7 +185,7 @@ const Queries = () => {
   };
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 w-full p-6 lg:p-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-glow">Ad-Hoc Queries</h1>
@@ -171,7 +229,7 @@ const Queries = () => {
                 <Button
                   size="sm"
                   className="gap-2 shadow-lg shadow-primary/30"
-                  onClick={executeQuery}
+                  onClick={() => executeQuery()}
                   disabled={loading}
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}

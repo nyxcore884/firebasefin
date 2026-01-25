@@ -10,3 +10,13 @@ great-expectations
 
 firebase-functions
 firebase-admin
+<<<<<<< Updated upstream
+=======
+google-cloud-firestore
+google-cloud-storage
+numpy
+scipy
+python-dateutil
+pandas
+openpyxl
+>>>>>>> Stashed changes

@@ -1,5 +1,11 @@
+<<<<<<< Updated upstream
 import { useState, useMemo } from 'react';
 import { ChevronRight, ChevronDown, Building2, Wallet, Layers, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
+=======
+import { useEffect, useState, useMemo } from 'react';
+import { useAppState } from '@/hooks/use-app-state';
+import { ChevronRight, ChevronDown, Building2, Wallet, Layers, AlertCircle, CheckCircle } from 'lucide-react';
+>>>>>>> Stashed changes
 import { Company, Department, FinancialNode } from '../../types/structure';
 import { validateBalanceSheet } from '@/lib/financial-logic';
 import { cn } from '@/lib/utils';
@@ -7,9 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-interface FinancialHierarchyProps {
-    data: Company[];
-}
+
 
 const FinancialNodeView = ({ node, level = 0 }: { node: FinancialNode; level?: number }) => {
     const [isOpen, setIsOpen] = useState(level < 1); // Open first level by default
@@ -118,6 +122,7 @@ const DepartmentView = ({ dept }: { dept: Department }) => {
     );
 };
 
+<<<<<<< Updated upstream
 export const FinancialHierarchy = ({ data }: FinancialHierarchyProps) => {
     const [selectedCompany, setSelectedCompany] = useState<string>(data[0]?.id);
     const [selectedDept, setSelectedDept] = useState<string>(data[0]?.subsidiaries?.[0]?.departments?.[0]?.id || '');
@@ -127,6 +132,57 @@ export const FinancialHierarchy = ({ data }: FinancialHierarchyProps) => {
     const activeSubsidiary = activeCompany.subsidiaries?.find(s => s.departments?.some(d => d.id === selectedDept));
     const activeDept = activeSubsidiary?.departments?.find(d => d.id === selectedDept);
 
+=======
+export const FinancialHierarchy = () => {
+    const { selectedCompany } = useAppState();
+    const [data, setData] = useState<Company[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedEntityId, setSelectedEntityId] = useState<string>('');
+    const [selectedDept, setSelectedDept] = useState<string>('');
+
+    useEffect(() => {
+        const fetchHierarchy = async () => {
+            setLoading(true);
+            try {
+                const res = await fetch('/api/process-transaction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'hierarchy',
+                        company_id: selectedCompany,
+                        company_name: selectedCompany
+                    })
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    const hierData = result.data;
+                    setData(hierData);
+
+                    // Auto-select first available dept if none selected or if company changed
+                    if (hierData?.length > 0) {
+                        setSelectedEntityId(hierData[0].id);
+                        const firstDeptId = hierData[0].subsidiaries?.[0]?.departments?.[0]?.id;
+                        if (firstDeptId) setSelectedDept(firstDeptId);
+                    }
+                }
+            } catch (e) {
+                console.error("Hierarchy Fetch Error", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchHierarchy();
+    }, [selectedCompany]);
+
+    // Flatten logic for selection helper (simplified)
+    const activeCompany = (data && data.length > 0) ? (data.find(c => c.id === selectedEntityId) || data[0]) : null;
+    const activeSubsidiary = activeCompany?.subsidiaries?.find(s => s.departments?.some(d => d.id === selectedDept));
+    const activeDept = activeSubsidiary?.departments?.find(d => d.id === selectedDept);
+
+    if (loading) return <div className="p-12 flex items-center justify-center text-muted-foreground animate-pulse">Loading smart hierarchy...</div>;
+    if (!activeCompany) return <div className="p-8 text-muted-foreground">No hierarchy data available for {selectedCompany}</div>;
+
+>>>>>>> Stashed changes
     return (
         <div className="flex h-full min-h-[500px] border rounded-xl overflow-hidden bg-background/50 shadow-sm">
             {/* Sidebar: Companies & Departments */}

@@ -60,8 +60,19 @@ class FirestoreDB:
 
 db = FirestoreDB(get_db)
 
+<<<<<<< Updated upstream
 class Dataset(db.Model):
     def __init__(self, name, description=None, schema=None, tags=None, owner=None, lineage=None, quality_rules=None, id=None):
+=======
+
+# --- Model ---
+class Dataset:
+    """Dataset model with validation."""
+    
+    def __init__(self, name, description=None, schema=None, tags=None, 
+                 owner=None, lineage=None, quality_rules=None, id=None,
+                 locked=False, current_version="v1"):
+>>>>>>> Stashed changes
         self.id = id
         self.name = name
         self.description = description
@@ -70,7 +81,13 @@ class Dataset(db.Model):
         self.owner = owner
         self.lineage = lineage or []
         self.quality_rules = quality_rules or []
+<<<<<<< Updated upstream
 
+=======
+        self.locked = locked
+        self.current_version = current_version
+    
+>>>>>>> Stashed changes
     def to_dict(self):
         return {
             "id": self.id,
@@ -80,7 +97,9 @@ class Dataset(db.Model):
             "tags": self.tags,
             "owner": self.owner,
             "lineage": self.lineage,
-            "quality_rules": self.quality_rules
+            "quality_rules": self.quality_rules,
+            "locked": self.locked,
+            "current_version": self.current_version
         }
 
     @classmethod
@@ -182,6 +201,7 @@ def registry_api(req: https_fn.Request) -> https_fn.Response:
                 
             dataset = Dataset.query_get(dataset_id)
             if dataset is None:
+<<<<<<< Updated upstream
                  return https_fn.Response(json.dumps({"error": "Dataset not found"}), status=404, headers={"Content-Type": "application/json"})
                  
             db.session.delete(dataset)
@@ -189,6 +209,54 @@ def registry_api(req: https_fn.Request) -> https_fn.Response:
 
         return https_fn.Response(status=405) # Method Not Allowed
 
+=======
+                return json_response({"error": "Dataset not found"}, 404)
+            
+            # Delete
+            session = db.session()
+            session.delete(dataset)
+            session.commit()
+            
+            logger.info(f"Deleted dataset: {dataset_id}")
+            return json_response({"message": "Dataset deleted", "id": dataset_id})
+        
+        # POST (Actions) - Lock/Unlock
+        elif req.method == 'POST' and req.args.get('action'):
+            action = req.args.get('action')
+            dataset_id = req.args.get('id')
+            
+            if not dataset_id:
+                return json_response({"error": "Missing 'id' parameter"}, 400)
+            
+            dataset = Dataset.query_get(dataset_id)
+            if not dataset:
+                 return json_response({"error": "Dataset not found"}, 404)
+
+            if action == 'lock':
+                dataset.locked = True
+                
+            elif action == 'unlock':
+                # Strictly guarded in real app
+                dataset.locked = False
+                
+            elif action == 'bump_version':
+                # Simple version bump logic
+                try:
+                    v = int(dataset.current_version.replace('v', ''))
+                    dataset.current_version = f"v{v+1}"
+                except:
+                    dataset.current_version = f"{dataset.current_version}.1"
+                    
+            session = db.session()
+            session.add(dataset)
+            session.commit()
+            
+            return json_response({"status": "success", "action": action, "dataset": dataset.to_dict()})
+        
+        else:
+            return json_response({"error": "Method not allowed"}, 405)
+    
+>>>>>>> Stashed changes
     except Exception as e:
         logger.error(f"Registry Error: {e}")
         return https_fn.Response(json.dumps({"error": str(e)}), status=500, headers={"Content-Type": "application/json"})

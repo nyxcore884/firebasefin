@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AssumptionInput } from './AssumptionInput';
 import { ScenarioChart } from './ScenarioChart';
 import { VarianceChart } from './VarianceChart';
@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, Zap } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
+import { useAppState } from '@/hooks/use-app-state';
 
 export function PrognosisDashboard() {
+    const { selectedCompany, selectedPeriod, currency } = useAppState();
     const [gasPrice, setGasPrice] = useState(2.2);
     const [inflation, setInflation] = useState(3.0);
     const [isLoading, setIsLoading] = useState(false);
-    const [endpoint, setEndpoint] = useState("http://127.0.0.1:5001/firebasefin-main/us-central1/generate_prognosis");
+    const [endpoint, setEndpoint] = useState("/api/process-transaction"); // Relative path via proxy
 
     // Default Initial Data (matches Python mock logic)
     const generateMockData = (gp: number) => {
@@ -35,15 +37,51 @@ export function PrognosisDashboard() {
 
     const [forecastData, setForecastData] = useState(generateMockData(2.2));
     const [annualRevenue, setAnnualRevenue] = useState(100000000);
+    const [varianceData, setVarianceData] = useState<any[]>([]);
 
-    // Mock Variance Data (Phase 21 Requirement)
-    const varianceData = [
-        { category: 'Social Gas Sales', budget: 6000000, actual: 5800000, variance: -200000 },
-        { category: 'Comm. Gas Sales', budget: 3000000, actual: 2800000, variance: -200000 },
-        { category: 'Service Rev', budget: 1000000, actual: 950000, variance: -50000 },
-        { category: 'COGS', budget: 4000000, actual: 4100000, variance: 100000 },
-        { category: 'OpEx', budget: 1500000, actual: 1600000, variance: 100000 },
-    ];
+    useEffect(() => {
+        fetchVarianceData();
+    }, [selectedCompany, selectedPeriod, currency]);
+
+    const fetchVarianceData = async () => {
+        try {
+            // Use our new single-entry point
+            // But we need to import it or just fetch manually here since we need to transform specific chart data
+            const res = await fetch('/api/financial-truth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    entity: selectedCompany,
+                    period: selectedPeriod,
+                    currency: currency
+                })
+            });
+            const data = await res.json(); // Truth Object
+
+            if (data && data.variance) {
+                // Keys are UPPERCASE from backend usually (REVENUE, etc.)
+                // We normalize logic locally
+                const getVar = (k: string) => data.variance[k] || { previous: 0, current: 0, variance: 0 };
+
+                const chartData = [
+                    { category: 'Revenue', ...getVar('REVENUE') }, // Maps to { current, previous, variance }
+                    { category: 'COGS', ...getVar('COGS') },
+                    { category: 'Expenses', ...getVar('OPEX') }, // Assuming OPEX is Expenses
+                    { category: 'EBITDA', ...getVar('EBITDA') },
+                    // { category: 'Net Income', ...getVar('NET_INCOME') }, // If needed
+                ].map(item => ({
+                    category: item.category,
+                    budget: item.previous, // previous as baseline
+                    actual: item.current,
+                    variance: item.variance
+                }));
+
+                setVarianceData(chartData);
+            }
+        } catch (e) {
+            console.error("Failed to fetch variance:", e);
+        }
+    };
 
     const handleRunForecast = async () => {
         setIsLoading(true);
@@ -188,7 +226,7 @@ export function PrognosisDashboard() {
                     <ScenarioChart data={forecastData} />
                 </div>
                 <div className="h-[450px] transition-all duration-500 hover:transform hover:scale-[1.01]">
-                    <VarianceChart data={varianceData} />
+                    <VarianceChart data={varianceData} title="Period over Period Variance" />
                 </div>
             </div>
         </div>

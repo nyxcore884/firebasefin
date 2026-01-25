@@ -10,11 +10,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Search,
-  Bell,
   Sun,
   Moon,
+  Sparkles,
   Globe,
   DollarSign,
   Coins,
@@ -22,16 +24,33 @@ import {
   X,
   Send,
   Building2,
-  Calendar,
+  Calendar as CalendarIcon,
   Users,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  RefreshCw,
+  Database,
+  PanelLeft,
+  FileBarChart,
+  CheckCircle,
+  Layout,
+  Presentation,
+  Activity
 } from 'lucide-react';
 import { AIBackground } from './AIBackground';
+<<<<<<< Updated upstream
+=======
+import GodMode from './GodMode';
+import AudioBriefing from './AudioBriefing';
+import InteractiveVoice from './InteractiveVoice';
+import NotificationCenter from './NotificationCenter';
+>>>>>>> Stashed changes
 import { AppSidebar } from './Sidebar';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { Outlet } from 'react-router-dom';
+import { FinsightIcon } from '@/components/FinsightIcon';
+import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
+import { Outlet, useLocation } from 'react-router-dom';
 import { useAppState, translations } from '@/hooks/use-app-state';
+import { AIText } from '@/components/common/AIText';
 import { auth } from '@/lib/firebase';
 import { signInAnonymously } from "firebase/auth";
 
@@ -45,6 +64,67 @@ interface ChatMessage {
 }
 
 // Floating AI Assistant Component
+<<<<<<< Updated upstream
+=======
+// HUD Ticker Component
+// HUD Ticker Component
+const HUDTicker = ({ company, period, department }: { company: string, period: string | null, department: string }) => {
+  const [metrics, setMetrics] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const res = await fetch('/api/truth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'hud_metrics', entity: company, period: period, department: department })
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const text = await res.text();
+        if (!text) return;
+
+        const data = JSON.parse(text);
+        setMetrics(data);
+      } catch (e) {
+        // Check if it's a 500 or JSON error, suppress log noise for known dev issues
+        // console.error("HUD Fetch Error", e); 
+      }
+    };
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 30000); // Poll every 30s
+    return () => clearInterval(interval);
+  }, [company, period, department]);
+
+  if (!metrics) return <div className="h-10 px-6 text-xs text-muted-foreground flex items-center">Loading live metrics...</div>;
+
+  return (
+    <div className="flex h-10 items-center justify-between px-6">
+      <div className="flex items-center gap-6 text-xs font-mono tracking-wide overflow-hidden whitespace-nowrap mask-linear-fade">
+        <div className="flex items-center gap-2 text-emerald-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          REV: ₾{(metrics.revenue || metrics.REVENUE || 0).toLocaleString()}
+        </div>
+        <div className="flex items-center gap-2 text-red-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+          BURN: ₾{(metrics.burn_rate || metrics.OPEX || 0).toLocaleString()}
+        </div>
+        <div className="flex items-center gap-2 text-blue-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+          RUNWAY: {metrics.cash_runway || 0} Mo
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+        <span><AIText>Verified by Engine</AIText></span>
+        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+      </div>
+    </div>
+  );
+};
+
+>>>>>>> Stashed changes
 const FloatingAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -52,7 +132,7 @@ const FloatingAssistant = () => {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const { selectedCompany, selectedPeriod, selectedDepartment } = useAppState();
+  const { selectedCompany, selectedPeriod, selectedDepartment, language } = useAppState();
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +145,7 @@ const FloatingAssistant = () => {
     setLoading(true);
 
     try {
-      const endpoint = "/functions/ai";
+      const endpoint = "/api/query";
       const user = auth.currentUser;
 
       const response = await fetch(endpoint, {
@@ -109,23 +189,32 @@ const FloatingAssistant = () => {
     // Optimistic UI Update
     setMessages(prev => prev.map(m => m.id === msgId ? { ...m, feedback: rating } : m));
 
-    if (rating === 'up') toast.success("Feedback recorded. I'll remember this!");
+    let correction = "";
+    if (rating === 'down') {
+      correction = window.prompt("How can I improve this response? (This helps me learn)") || "Incorrect answer flagged.";
+      toast.info("Correction received. Sending to Neural Brain for retraining...");
+    } else {
+      toast.success("Feedback recorded. I'll remember this!");
+    }
 
-    const endpoint = "/functions/ai_query_api";
+    const endpoint = "/api/query"; // Fixed to use active gateway
     const user = auth.currentUser;
 
-    // If downvote, we could ask for correction, but for now just log it
-    await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'feedback',
-        userId: user?.uid || 'anonymous',
-        msgId,
-        rating,
-        correction: rating === 'down' ? "User flagged this answer as incorrect." : ""
-      })
-    });
+    try {
+      await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'feedback',
+          userId: user?.uid || 'anonymous',
+          msgId,
+          rating,
+          correction
+        })
+      });
+    } catch (e) {
+      console.error("Feedback error", e);
+    }
   };
 
   return (
@@ -138,8 +227,13 @@ const FloatingAssistant = () => {
                 <BrainCircuit className="h-5 w-5 text-primary" />
               </div>
               <div>
+<<<<<<< Updated upstream
                 <h4 className="text-sm font-semibold">CFO Assistant</h4>
                 <p className="text-[10px] text-muted-foreground">Cognitive Engine v2</p>
+=======
+                <h4 className="text-sm font-semibold"><AIText>AI Assistant MURTAZI</AIText></h4>
+                <p className="text-[10px] text-muted-foreground"><AIText>Cognitive Engine v2</AIText></p>
+>>>>>>> Stashed changes
               </div>
             </div>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsOpen(false)}>
@@ -167,12 +261,13 @@ const FloatingAssistant = () => {
                     {/* CoT Display */}
                     {msg.thought_process && msg.thought_process.length > 0 && (
                       <div className="mb-2 pb-2 border-b border-primary/10">
+                        <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-300 antialiased">Synthesized Reasoning Trace</h4>
                         <p className="text-[10px] uppercase font-bold text-primary/70 mb-1 flex items-center gap-1">
-                          <BrainCircuit className="h-3 w-3" /> Thinking Process
+                          <BrainCircuit className="h-3 w-3" /> <AIText>Thinking Process</AIText>
                         </p>
                         <div className="space-y-1 pl-1 border-l-2 border-primary/20">
                           {msg.thought_process.map((thought, i) => (
-                            <p key={i} className="text-[10px] text-muted-foreground italic">{thought}</p>
+                            <p key={i} className="text-[10px] text-muted-foreground"><AIText>{thought}</AIText></p>
                           ))}
                         </div>
                       </div>
@@ -220,7 +315,11 @@ const FloatingAssistant = () => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+<<<<<<< Updated upstream
                 placeholder="Ask your CFO Assistant..."
+=======
+                placeholder={language === 'en' ? "Ask MURTAZI..." : "ჰკითხეთ MURTAZI-ს..."}
+>>>>>>> Stashed changes
                 disabled={loading}
               />
               <Button type="submit" size="icon" className="h-8 w-8 rounded-lg" disabled={loading || !input.trim()}>
@@ -270,137 +369,179 @@ export const Shell = () => {
     signIn();
   }, []);
 
+  const location = useLocation();
+  const isController = location.pathname.startsWith('/controller');
+
   return (
     <SidebarProvider defaultOpen={isSidebarPinned}>
-      <div className="relative min-h-screen w-full selection:bg-primary/30 selection:text-foreground">
+      <div className="flex bg-transparent min-h-screen w-full font-sans antialiased text-foreground selection:bg-primary/20 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/5 via-transparent to-transparent overflow-x-hidden">
         <AIBackground />
+
+        {/* Sidebar */}
         <AppSidebar />
-        <div className={cn("min-h-screen flex flex-col", isSidebarPinned ? "lg:ml-64" : "lg:ml-12", "transition-all duration-300 ease-in-out")}>
-          <header className="sticky top-0 z-10 h-16 px-6 flex items-center justify-between glass-header">
-            <div className="flex items-center gap-4">
+
+        {/* Main Content */}
+        <SidebarInset>
+          <header className="sticky top-0 z-40 h-20 px-6 lg:px-8 flex items-center justify-between bg-background/80 dark:bg-slate-950/80 border-b border-primary/10 dark:border-white/5 backdrop-blur-3xl shadow-vivid">
+            <div className="flex items-center gap-6 flex-1">
               <SidebarTrigger className="lg:hidden text-muted-foreground hover:text-foreground" />
 
-              {/* Context Selector: Company */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 gap-2 rounded-full border-primary/20 bg-primary/5 hover:bg-primary/10">
-                    <Building2 className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-semibold">{selectedCompany}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="glass-card w-48">
-                  <DropdownMenuLabel className="text-[10px] uppercase font-bold text-muted-foreground">Select Entity</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setSelectedCompany('SGG-001')} className={cn("text-xs", selectedCompany === 'SGG-001' && "bg-primary text-primary-foreground")}>
-                    SOCAR Georgia (SGG-001)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSelectedCompany('SGG-002')} className={cn("text-xs", selectedCompany === 'SGG-002' && "bg-primary text-primary-foreground")}>
-                    SOCAR Gas Export (SGG-002)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSelectedCompany('SGG-003')} className={cn("text-xs", selectedCompany === 'SGG-003' && "bg-primary text-primary-foreground")}>
-                    TelavGas (SGG-003)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* Unified Command Hub - Strategic Cockpit Bar */}
+              <div className="flex items-center gap-0.5 bg-primary/5 dark:bg-slate-900/40 p-1 rounded-2xl border border-primary/10 dark:border-white/5 backdrop-blur-md shadow-vivid ring-1 ring-primary/5">
+                {/* 1. Search / Intelligence Context */}
+                <div className="flex items-center gap-2 px-4 py-2 border-r border-primary/10 dark:border-white/5 group focus-within:bg-primary/10 transition-all">
+                  <Search className="h-4 w-4 text-primary/40 group-focus-within:text-primary" />
+                  <input
+                    className="bg-transparent border-none outline-none text-[11px] font-black uppercase tracking-widest w-32 xl:w-48 placeholder:text-muted-foreground/30 text-foreground"
+                    placeholder={language === 'en' ? "SEARCH CONTEXT..." : "ძიება..."}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
 
-              {/* Context Selector: Period */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 gap-2 rounded-full border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10">
-                    <Calendar className="h-4 w-4 text-emerald-500" />
-                    <span className="text-xs font-semibold">{selectedPeriod}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="glass-card w-40">
-                  <DropdownMenuLabel className="text-[10px] uppercase font-bold text-muted-foreground">Select Period</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {['2023-09', '2023-10', '2023-11', '2023-12'].map(p => (
-                    <DropdownMenuItem key={p} onClick={() => setSelectedPeriod(p)} className={cn("text-xs", selectedPeriod === p && "bg-emerald-500 text-white")}>
-                      {p}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                {/* 2. Company Selector */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-3 px-4 py-2 hover:bg-primary/5 transition-all outline-none group border-r border-primary/10 dark:border-primary/20 whitespace-nowrap text-left">
+                      <Building2 className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
+                      <div className="flex flex-col items-start leading-tight text-left">
+                        <span className="text-[8px] uppercase font-black text-muted-foreground/40 tracking-widest"><AIText>Entity</AIText></span>
+                        <span className="text-[11px] font-black text-foreground">{selectedCompany}</span>
+                      </div>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-64 glass-card p-3 border-primary/20 shadow-2xl rounded-2xl bg-background/90">
+                    <DropdownMenuLabel className="text-[9px] uppercase font-black text-slate-500 px-2 pb-2">Corporation Context</DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-white/5 mb-2" />
+                    {[
+                      { id: 'SGG-001', name: 'SOCAR Georgia Gas', type: 'Distribution' },
+                      { id: 'SGG-002', name: 'SOCAR Gas Export', type: 'Logistics' },
+                      { id: 'SGG-003', name: 'TelavGas', type: 'Regional' }
+                    ].map(c => (
+                      <DropdownMenuItem
+                        key={c.id}
+                        onClick={() => setSelectedCompany(c.id)}
+                        className={cn(
+                          "flex flex-col items-start gap-1 p-3 rounded-xl transition-all cursor-pointer mb-1 last:mb-0",
+                          selectedCompany === c.id ? "bg-indigo-500/20 border border-indigo-500/20" : "hover:bg-white/5 border border-transparent"
+                        )}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-[11px] font-black text-white uppercase">{c.name}</span>
+                          <span className="text-[9px] bg-white/10 px-2 py-0.5 rounded-full font-black">{c.id}</span>
+                        </div>
+                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">{c.type} Division</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-              {/* Context Selector: Department */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 gap-2 rounded-full border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10">
-                    <Users className="h-4 w-4 text-purple-500" />
-                    <span className="text-xs font-semibold">{selectedDepartment}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="glass-card w-48">
-                  <DropdownMenuLabel className="text-[10px] uppercase font-bold text-muted-foreground">Select Department</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {['All', 'Finance', 'Technical', 'Operations'].map(d => (
-                    <DropdownMenuItem key={d} onClick={() => setSelectedDepartment(d)} className={cn("text-xs", selectedDepartment === d && "bg-purple-500 text-white")}>
-                      {d} Department
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                {/* 3. Department Selector */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-3 px-4 py-2 hover:bg-primary/5 transition-all outline-none group border-r border-primary/10 dark:border-primary/20 whitespace-nowrap text-left">
+                      <Users className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
+                      <div className="flex flex-col items-start leading-tight">
+                        <span className="text-[8px] uppercase font-black text-muted-foreground/40 tracking-widest"><AIText>Department</AIText></span>
+                        <span className="text-[11px] font-black text-foreground">{selectedDepartment}</span>
+                      </div>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56 glass-card p-2 border-white/10 shadow-2xl rounded-2xl bg-slate-950">
+                    {['All', 'Technical', 'Human Resources', 'Sales & Marketing', 'Customer Service', 'Finance'].map(dept => (
+                      <DropdownMenuItem
+                        key={dept}
+                        onClick={() => setSelectedDepartment(dept)}
+                        className={cn(
+                          "flex items-center justify-between p-3 rounded-xl transition-all cursor-pointer mb-1 last:mb-0 text-[11px] font-black uppercase tracking-widest",
+                          selectedDepartment === dept ? "bg-indigo-500/20 text-indigo-400" : "hover:bg-white/5 text-slate-300"
+                        )}
+                      >
+                        {dept}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-              <div className={cn(
-                "hidden xl:flex items-center gap-2 rounded-full px-3 py-1.5 w-64 lg:w-80 transition-all duration-300 ml-4",
-                theme === 'dark'
-                  ? "bg-secondary/60 border border-border/60 focus-within:ring-1 focus-within:ring-primary"
-                  : "bg-muted/50 border border-border focus-within:ring-1 focus-within:ring-ring"
-              )}>
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search analysis, reports, or data..."
-                  className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground/80"
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <kbd className="hidden lg:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-                  <span className="text-xs">⌘</span>K
-                </kbd>
+                {/* 4. Fiscal Window (Advanced Calendar) */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="flex items-center gap-3 px-5 py-2 hover:bg-primary/5 transition-all outline-none group whitespace-nowrap rounded-r-2xl border-l border-primary/10 dark:border-white/5">
+                      <CalendarIcon className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
+                      <div className="flex flex-col items-start leading-tight">
+                        <span className="text-[8px] uppercase font-black text-muted-foreground/40 tracking-widest">{language === 'en' ? 'Fiscal Window' : 'აუდიტის ფანჯარა'}</span>
+                        <span className="text-[11px] font-black text-foreground">{selectedPeriod || (language === 'en' ? 'OPEN CONTEXT' : 'ღია კონტექსტი')}</span>
+                      </div>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 border-white/10 shadow-2xl rounded-2xl bg-slate-950" align="end">
+                    <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                      <span className="text-[9px] uppercase font-black text-slate-500 tracking-widest">{language === 'en' ? 'Select Audit Period' : 'აირჩიეთ პერიოდი'}</span>
+                      {selectedPeriod && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[9px] font-black text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                          onClick={() => setSelectedPeriod(null)}
+                        >
+                          {language === 'en' ? 'CLEAR' : 'გასუფთავება'}
+                        </Button>
+                      )}
+                    </div>
+                    <Calendar
+                      mode="single"
+                      selected={selectedPeriod ? new Date(selectedPeriod + '-01') : undefined}
+                      onSelect={(date) => {
+                        if (date) {
+                          const year = date.getFullYear();
+                          const month = String(date.getMonth() + 1).padStart(2, '0');
+                          setSelectedPeriod(`${year}-${month}`);
+                        }
+                      }}
+                      className="bg-slate-950 text-white"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
+            {/* ... Right side header items ... */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                {/* Global Language Toggle */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-10 px-4 rounded-xl border-primary/10 bg-primary/5 dark:bg-white/5 hover:bg-primary/10 dark:hover:bg-white/10 text-[10px] font-black uppercase tracking-widest gap-2">
+                      <Globe className="h-3.5 w-3.5 text-primary" />
+                      {language === 'en' ? 'EN' : 'KA'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-slate-950 border-white/10 rounded-xl">
+                    <DropdownMenuItem onClick={() => setLanguage('en')} className="text-[10px] font-black uppercase py-2">English</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setLanguage('ka')} className="text-[10px] font-black uppercase py-2">ქართული</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full text-muted-foreground hover:text-foreground">
-                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              </Button>
+                {/* Global Theme Toggle */}
+                <Button
+                  variant="outline" size="sm"
+                  className="h-10 w-10 p-0 rounded-xl border-primary/10 bg-primary/5 dark:bg-white/5 hover:bg-primary/10 dark:hover:bg-white/10 text-primary transition-all shadow-vivid"
+                  onClick={toggleTheme}
+                  title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                >
+                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </Button>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground">
-                    <Globe className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="glass-card">
-                  <DropdownMenuLabel>{t.language}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setLanguage('en')} className={cn(language === 'en' && "bg-primary text-primary-foreground")}>
-                    English
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setLanguage('ka')} className={cn(language === 'ka' && "bg-primary text-primary-foreground")}>
-                    ქართული
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                {/* Global Currency Toggle */}
+                <Button
+                  variant="outline" size="sm"
+                  className="h-10 w-10 p-0 rounded-xl border-primary/10 bg-primary/5 dark:bg-white/5 hover:bg-primary/10 dark:hover:bg-white/10 text-[10px] font-black uppercase transition-all shadow-vivid"
+                  onClick={() => setCurrency(currency === 'USD' ? 'GEL' : 'USD')}
+                >
+                  <span className="text-primary text-[14px]">{currency === 'USD' ? '$' : '₾'}</span>
+                </Button>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground">
-                    {currency === 'USD' ? <DollarSign className="h-5 w-5" /> : <Coins className="h-5 w-5" />}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="glass-card">
-                  <DropdownMenuLabel>{t.currency}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setCurrency('USD')} className={cn(currency === 'USD' && "bg-primary text-primary-foreground")}>
-                    USD ($)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setCurrency('GEL')} className={cn(currency === 'GEL' && "bg-primary text-primary-foreground")}>
-                    GEL (₾)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                <div className="w-px h-6 bg-primary/10 dark:bg-white/5 mx-2" />
 
+<<<<<<< Updated upstream
               <Button variant="ghost" size="icon" onClick={() => toast.info('Notifications are not yet implemented.')} className="relative rounded-full text-muted-foreground hover:text-foreground">
                 <Bell className="h-5 w-5" />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full ring-1 ring-background" />
@@ -417,5 +558,38 @@ export const Shell = () => {
         </div>
       </div>
     </SidebarProvider>
+=======
+                <NotificationCenter />
+
+                <Button size="icon" variant="ghost" className="rounded-xl h-10 w-10 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <div className="font-black text-[10px]">CFO</div>
+                </Button>
+              </div>
+            </div>
+          </header>
+
+          {/* Sticky HUD */}
+          <div className="sticky top-20 z-30 w-full backdrop-blur-xl bg-background/40 dark:bg-slate-950/40 border-b border-primary/10 dark:border-white/10 animate-in slide-in-from-top-4 duration-500 shadow-vivid">
+            <HUDTicker company={selectedCompany} period={selectedPeriod} department={selectedDepartment} />
+          </div>
+
+          <div className={cn(
+            "flex flex-col flex-1",
+            isController ? "min-h-0 overflow-hidden" : "overflow-y-auto"
+          )}>
+            <div className={cn(
+              "flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both flex-1",
+              isController ? "h-full w-full min-h-0" : "w-full space-y-8"
+            )}>
+              <Outlet />
+            </div>
+            {!isController && <FloatingAssistant />}
+            {!isController && <GodMode />}
+            {/* Footer or Padding could go here */}
+          </div>
+        </SidebarInset>
+      </div >
+    </SidebarProvider >
+>>>>>>> Stashed changes
   );
 };

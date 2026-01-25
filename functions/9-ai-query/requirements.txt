@@ -1,6 +1,12 @@
 functions-framework==3.*
 flask==3.*
 google-cloud-firestore
+<<<<<<< Updated upstream
 
+=======
+requests==2.31.0
+google-cloud-aiplatform
+numpy
+>>>>>>> Stashed changes
 firebase-functions
 firebase-admin

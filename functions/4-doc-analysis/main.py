@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import functions_framework
 from google.cloud import storage
 import vertexai
@@ -119,3 +120,120 @@ def analyze_document(request):
     except Exception as e:
         print(f"[DOC-ANALYSIS-ERROR] {e}")
         return (json.dumps({"error": str(e)}), 500, headers)
+=======
+from firebase_functions import storage_fn
+from firebase_admin import initialize_app, firestore
+import google.cloud.firestore as firestore_lib
+import hashlib
+from datetime import datetime
+
+# Initialize Firebase Logic
+# Check if already initialized to avoid errors in hot reloads
+try:
+    if not firebase_admin._apps:
+        initialize_app()
+except Exception as e:
+    # During deployment analysis, credentials might be missing.
+    # We suppress this to allow the deploy to finish.
+    # At runtime in Cloud, this will work.
+    print(f"Warning: Firebase Init skipped (Deployment mode?): {e}")
+
+# Global placeholders
+_db = None
+
+def get_db():
+    global _db
+    if _db is None:
+        try:
+            # Only initialize if not already done
+            if not firebase_admin._apps:
+                initialize_app()
+            _db = firestore.client()
+        except Exception as e:
+            # During deployment analysis, this will fail.
+            # We must not crash here or deployment fails.
+            print(f"Lazy Init Warning: {e}")
+            return None
+    return _db
+
+@storage_fn.on_object_finalized()
+def process_document_upload(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]) -> None:
+    """
+    Trigger: Upload to 'financial-docs' bucket.
+    Action:
+      - Register document as financial evidence
+      - Bind to dataset_id + version
+      - Index content for AI (non-authoritative)
+      - Write audit trail
+    """
+
+    data = event.data
+    file_name = data.name
+    bucket = data.bucket
+
+    # 🔒 1. Derive dataset identity
+    # Assumption: Filename convention "dataset_id/filename" or just "dataset_id_..."
+    # If file is "procurement_sog_2025_11/invoice.pdf", dataset_id is "procurement_sog_2025_11"
+    # If file is "procurement_sog_2025_11.pdf", dataset_id is "procurement_sog_2025_11"
+    
+    parts = file_name.split("/")
+    if len(parts) > 1:
+        dataset_id = parts[0]
+    else:
+        # Fallback: remove extension
+        dataset_id = file_name.rsplit('.', 1)[0]
+        
+    uploaded_at = datetime.utcnow().isoformat()
+
+    # 🔒 2. Dataset version hash (immutability)
+    version_hash = hashlib.sha256(
+        f"{file_name}:{uploaded_at}".encode()
+    ).hexdigest()[:12]
+
+    db = get_db()
+
+    # 🔒 3. Register dataset (if not exists)
+    # This acts as the "Binder"
+    dataset_ref = db.collection("dataset_registry").document(dataset_id)
+    dataset_ref.set({
+        "dataset_id": dataset_id,
+        "source": "document_upload",
+        "current_version": version_hash,
+        "locked": False,
+        "updated_at": firestore_lib.SERVER_TIMESTAMP
+    }, merge=True)
+
+    # 🧾 4. Audit log (THIS IS CRITICAL)
+    db.collection("audit_log").add({
+        "event": "DOCUMENT_UPLOADED",
+        "dataset_id": dataset_id,
+        "dataset_version": version_hash,
+        "file_name": file_name,
+        "bucket": bucket,
+        "timestamp": firestore_lib.SERVER_TIMESTAMP
+    })
+
+    # 📄 5. Extract text (Stubbed Logic)
+    # Ideally, this calls Vision API or Document AI.
+    # We simulate extraction for the scope of this refactor.
+    full_text = f"Financial supporting document: {file_name}\n\n[Content Placeholder]"
+
+    chunks = [c for c in full_text.split("\n\n") if len(c) > 0]
+
+    batch = db.batch()
+
+    for chunk in chunks:
+        # Note: We do NOT overwrite. We append knowledge fragments bound to this specific version.
+        batch.set(db.collection("knowledge_base").document(), {
+            "dataset_id": dataset_id,
+            "dataset_version": version_hash,
+            "content": chunk,
+            "source_file": file_name,
+            "scope": "supporting_document",
+            "created_at": firestore_lib.SERVER_TIMESTAMP
+        })
+
+    batch.commit()
+
+    print(f"[FINANCE] Document indexed for dataset {dataset_id} v{version_hash}")
+>>>>>>> Stashed changes

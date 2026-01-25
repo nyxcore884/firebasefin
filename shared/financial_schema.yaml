@@ -1,0 +1,27 @@
+columns:
+  transaction_date:
+    source: "Posting Date"
+    type: date
+
+  vendor:
+    source: "Supplier Name"
+    type: string
+
+  amount:
+    source: "Amount"
+    type: money
+    sign: debit
+
+  currency:
+    default: "GEL"
+
+  account_code:
+    source: "GL Account"
+    required: true
+
+  department:
+    source: "Cost Center"
+
+rules:
+  opex_accounts: [6000-6999]
+  capex_accounts: [1500-1599]

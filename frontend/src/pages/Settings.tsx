@@ -1,15 +1,20 @@
 
 import { toast } from 'sonner';
-import { 
-  User, 
-  Lock, 
-  Bell, 
-  Eye, 
-  Palette, 
-  ShieldCheck, 
-  Cpu, 
+import { useState } from 'react';
+import { AIText } from '@/components/common/AIText';
+import {
+  User,
+  Lock,
+  Bell,
+  Eye,
+  Palette,
+  ShieldCheck,
+  Cpu,
   Cloud,
-  Monitor
+  Monitor,
+  Database,
+  Loader2,
+  Activity
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,20 +22,44 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useSettings } from '@/hooks/use-settings';
 import { cn } from '@/lib/utils';
+import { seedFirestore } from '@/lib/seed-data';
 
 const Settings = () => {
-  const { 
-    theme, 
-    setTheme, 
+  const {
+    theme,
+    setTheme,
     animateBackground,
     setAnimateBackground
   } = useSettings();
 
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  const handleSeedData = async () => {
+    setIsSeeding(true);
+    try {
+      console.log('🚀 Starting data seeding...');
+      const result = await seedFirestore();
+      if (result.success) {
+        toast.success(`Seeding complete! ${result.count} transactions created.`);
+        console.log('✅ Seeding completed successfully:', result);
+      } else {
+        toast.error('Seeding failed. Check console for details.');
+      }
+    } catch (error) {
+      console.error('❌ Seeding error:', error);
+      toast.error(`Seeding failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 animate-in fade-in duration-700">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-glow">Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your account preferences and application configuration.</p>
+        <h1 className="text-3xl font-black tracking-tight text-glow uppercase italic"><AIText>Settings</AIText></h1>
+        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 flex items-center gap-2 mt-1">
+          <Activity className="h-3 w-3" /> <AIText>Manage your account preferences and application configuration.</AIText>
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -44,28 +73,29 @@ const Settings = () => {
             { label: 'Privacy', icon: Eye },
             { label: 'Integrations', icon: Cloud },
           ].map((item) => (
-            <button 
+            <button
               key={item.label}
               onClick={() => toast.info('This functionality is not yet implemented.')}
               className={cn(
-                "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all text-sm font-medium",
-                item.active 
-                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" 
+                "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest",
+                item.active
+                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               )}
             >
               <item.icon className="h-4 w-4" />
-              {item.label}
+              <AIText>{item.label}</AIText>
             </button>
           ))}
         </div>
 
         {/* Content */}
         <div className="lg:col-span-3 space-y-8">
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle>Account Profile</CardTitle>
-              <CardDescription>Update your personal information and professional details.</CardDescription>
+          <Card className="glass-vivid border-primary/10 overflow-hidden relative group">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardHeader className="relative z-10">
+              <CardTitle className="text-sm font-black italic uppercase"><AIText>Account Profile</AIText></CardTitle>
+              <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60"><AIText>Update your personal information and professional details.</AIText></CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center gap-6 pb-6 border-b border-border/50">
@@ -95,10 +125,11 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle>Preferences</CardTitle>
-              <CardDescription>Configure how FinSight behaves and interacts with you.</CardDescription>
+          <Card className="glass-vivid border-primary/10 overflow-hidden relative group">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardHeader className="relative z-10">
+              <CardTitle className="text-sm font-black italic uppercase"><AIText>Preferences</AIText></CardTitle>
+              <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60"><AIText>Configure how FinSight behaves and interacts with you.</AIText></CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between p-4 rounded-xl bg-muted/10 border border-border/50">
@@ -111,9 +142,9 @@ const Settings = () => {
                     <p className="text-xs text-muted-foreground">Switch between light and dark visual modes</p>
                   </div>
                 </div>
-                <Switch 
-                  checked={theme === 'dark'} 
-                  onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')} 
+                <Switch
+                  checked={theme === 'dark'}
+                  onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
                 />
               </div>
 
@@ -127,9 +158,9 @@ const Settings = () => {
                     <p className="text-xs text-muted-foreground">Enable floating gradients and neural animations</p>
                   </div>
                 </div>
-                <Switch 
-                  checked={animateBackground} 
-                  onCheckedChange={setAnimateBackground} 
+                <Switch
+                  checked={animateBackground}
+                  onCheckedChange={setAnimateBackground}
                 />
               </div>
 
@@ -158,6 +189,34 @@ const Settings = () => {
             <Button variant="ghost" onClick={() => toast.info('This functionality is not yet implemented.')}>Cancel</Button>
             <Button className="shadow-lg shadow-primary/20 px-8" onClick={() => toast.info('This functionality is not yet implemented.')}>Save Changes</Button>
           </div>
+
+          {/* Developer Tools */}
+          <Card className="glass-card border-amber-500/20 bg-amber-500/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-amber-500" />
+                Developer Tools
+              </CardTitle>
+              <CardDescription>Administrative actions for testing and development.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between p-4 rounded-xl bg-muted/10 border border-border/50">
+                <div>
+                  <p className="text-sm font-semibold">Seed Demo Data</p>
+                  <p className="text-xs text-muted-foreground">Populate Firestore with 450 sample transactions for testing.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  className="border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
+                  onClick={handleSeedData}
+                  disabled={isSeeding}
+                >
+                  {isSeeding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Database className="h-4 w-4 mr-2" />}
+                  {isSeeding ? 'Seeding...' : 'Seed Data'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

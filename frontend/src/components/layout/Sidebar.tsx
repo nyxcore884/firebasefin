@@ -12,7 +12,11 @@ import {
   ChevronsLeft,
   Sparkles,
   BrainCircuit,
-  ShieldCheck
+  ShieldCheck,
+  Network,
+  Workflow,
+  BookOpen,
+  PieChart
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -33,6 +37,7 @@ import {
 import { useAppState, translations } from '@/hooks/use-app-state';
 import { Button } from '@/components/ui/button';
 import { FinsightIcon } from '@/components/FinsightIcon';
+import { AIText } from '@/components/common/AIText';
 
 export const AppSidebar = () => {
   const { language, isSidebarPinned, toggleSidebarPinned } = useAppState();
@@ -68,15 +73,18 @@ export const AppSidebar = () => {
   };
 
   const navItems = [
-    { icon: LayoutDashboard, label: t.dashboard, path: '/' },
+    { icon: LayoutDashboard, label: t.dashboard, path: '/dashboard' },
     { icon: BarChart3, label: t.analysis, path: '/analysis' },
     { icon: TrendingUp, label: t.prognostics, path: '/prognostics' },
     { icon: FileText, label: t.reports, path: '/reports' },
+    { icon: PieChart, label: t.statutoryReports, path: '/statutory-reports' },
     { icon: Search, label: t.queries, path: '/queries' },
     { icon: Database, label: t.dataHub, path: '/datahub' },
-    { icon: Sparkles, label: 'Smart Canvas', path: '/workspace' },
-    { icon: BrainCircuit, label: 'ML Tuning', path: '/ml-tuning' },
-    { icon: ShieldCheck, label: 'AI Management', path: '/ai-management' },
+    { icon: Sparkles, label: t.smartCanvas, path: '/workspace' },
+    { icon: BrainCircuit, label: t.mlTuning, path: '/ml-tuning' },
+    { icon: ShieldCheck, label: t.aiManagement, path: '/ai-management' },
+    { icon: Network, label: t.systemsHub, path: '/systems' },
+    { icon: BookOpen, label: t.knowledgeBase, path: '/knowledge-base' },
   ];
 
   const isCollapsed = state === 'collapsed';
@@ -84,7 +92,7 @@ export const AppSidebar = () => {
   return (
     <Sidebar
       collapsible="icon"
-      className="glass-sidebar group !bg-transparent border-r-0"
+      className="glass-sidebar group border-r-0"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -125,7 +133,7 @@ export const AppSidebar = () => {
                   >
                     <NavLink to={item.path} end>
                       <item.icon className="h-5 w-5 shrink-0" />
-                      <span>{item.label}</span>
+                      <span><AIText>{item.label}</AIText></span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -148,7 +156,7 @@ export const AppSidebar = () => {
                 >
                   <NavLink to="/settings">
                     <Settings className="h-5 w-5 shrink-0" />
-                    <span>{t.settings}</span>
+                    <span><AIText>{t.settings}</AIText></span>
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

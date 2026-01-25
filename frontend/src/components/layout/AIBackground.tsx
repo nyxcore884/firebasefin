@@ -138,11 +138,11 @@ export const AIBackground: React.FC<AIBackgroundProps> = ({ animate = true }) =>
   }, [animate, theme]);
 
   return (
-    <div className="fixed inset-0 -z-1 bg-background overflow-hidden pointer-events-none">
-      <div className={cn("absolute inset-0 ai-gradient-bg", theme === 'dark' ? 'opacity-80' : 'opacity-60')} />
+    <div className="fixed inset-0 z-[-10] overflow-hidden pointer-events-none bg-background">
+      <div className={cn("absolute inset-0 ai-gradient-bg bg-noise", theme === 'dark' ? 'opacity-80' : 'opacity-60')} />
       <canvas
         ref={canvasRef}
-        className={cn("absolute inset-0 w-full h-full transition-opacity duration-1000", theme === 'dark' ? 'opacity-30' : 'opacity-50')}
+        className={cn("absolute inset-0 w-full h-full transition-opacity duration-1000", theme === 'dark' ? 'opacity-80' : 'opacity-90')}
       />
     </div>
   );

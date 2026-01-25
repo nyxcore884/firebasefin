@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import functions_framework
 import base64
 
@@ -94,3 +95,124 @@ def process_july_sgg(df):
     # Commit any remaining documents
     batch.commit()
     print(f"[TRANSFORMATION] Successfully loaded {len(df_to_load)} documents into 'sgg_transactions' collection.")
+=======
+import os
+import logging
+from firebase_functions import https_fn, options
+from firebase_admin import firestore, initialize_app
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Global lazy initialization
+_db = None
+
+def get_db():
+    global _db
+    if _db is None:
+        from firebase_admin import firestore, initialize_app
+        import firebase_admin
+        if not firebase_admin._apps:
+            initialize_app()
+        _db = firestore.client()
+    return _db
+
+@https_fn.on_request(
+    timeout_sec=540,
+    memory=options.MemoryOption.GB_1
+)
+def run_transformation(req: https_fn.Request) -> https_fn.Response:
+    """
+    Runs deterministic transformation for a locked dataset version.
+    """
+    from firebase_admin import firestore
+    # Import Transformers inside to avoid top-level cost
+    from procurement_sog_transformer import normalize_row
+
+    dataset_id = req.args.get("dataset_id")
+    actor = req.headers.get("X-User", "system")
+
+    if not dataset_id:
+        return https_fn.Response("Missing dataset_id", status=400)
+
+    # 1️⃣ Resolve dataset + version
+    db = get_db()
+    dataset_ref = db.collection("dataset_registry").document(dataset_id)
+    dataset = dataset_ref.get().to_dict()
+
+    if not dataset:
+        return https_fn.Response("Dataset not found", status=404)
+
+    if dataset.get("locked"):
+        return https_fn.Response("Dataset is locked", status=403)
+
+    dataset_version = dataset["current_version"]
+
+    logger.info(f"Transforming {dataset_id} v{dataset_version}")
+
+    try:
+        # 2️⃣ Read RAW LEDGER (VERSIONED)
+        raw_stream = (
+            db.collection("raw_ledger")
+            .where(filter=firestore.FieldFilter("dataset_id", "==", dataset_id))
+            .where(filter=firestore.FieldFilter("dataset_version", "==", dataset_version))
+            .stream()
+        )
+
+        batch = db.batch()
+        out = db.collection("fact_financial_summary")
+
+        count = 0
+        written = 0
+
+        for doc in raw_stream:
+            raw = doc.to_dict()
+
+            normalized = normalize_row(
+                raw_row=raw["row"],
+                dataset_id=dataset_id
+            )
+
+            if not normalized:
+                continue
+
+            # 3️⃣ Enforce finance identity
+            normalized.update({
+                "dataset_id": dataset_id,
+                "dataset_version": dataset_version,
+                "entity_id": raw.get("entity_id", "DEFAULT"),
+                "source_row_id": doc.id,
+                "created_at": firestore.SERVER_TIMESTAMP
+            })
+
+            batch.set(out.document(), normalized)
+            written += 1
+            count += 1
+
+            if count >= 400:
+                batch.commit()
+                batch = db.batch()
+                count = 0
+
+        if count:
+            batch.commit()
+
+        # 4️⃣ Audit trail (MANDATORY)
+        db.collection("audit_log").add({
+            "event": "TRANSFORMATION_RUN",
+            "dataset_id": dataset_id,
+            "dataset_version": dataset_version,
+            "records_written": written,
+            "actor": actor,
+            "timestamp": firestore.SERVER_TIMESTAMP
+        })
+
+        return https_fn.Response(
+            f"Transformation complete: {written} facts written",
+            status=200
+        )
+
+    except Exception as e:
+        logger.error("Transformation failed", exc_info=True)
+        return https_fn.Response(str(e), status=500)
+>>>>>>> Stashed changes

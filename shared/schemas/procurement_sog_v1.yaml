@@ -1,0 +1,82 @@
+dataset:
+  name: procurement_sog
+  version: v1
+  type: management_summary
+  currency: GEL
+  periodicity: monthly
+  accounting_basis: accrual
+  source_system: procurement
+
+dimensions:
+  reporting_period:
+    source:
+      row: 7
+      column: "Unnamed: 4"
+    type: month
+    value_transform: month_name_to_date
+
+  budget_article:
+    source_column: "Unnamed: 9"
+    type: string
+    role: cost_category
+    required: true
+
+measures:
+  actual_month:
+    source_column: "Unnamed: 11"
+    type: money
+    sign: debit
+
+  budget_month:
+    source_column: "Unnamed: 12"
+    type: money
+    sign: debit
+
+  variance_month:
+    source_column: "Unnamed: 13"
+    type: money
+    derived: true
+
+  variance_pct:
+    source_column: "Unnamed: 14"
+    type: percentage
+    derived: true
+
+  actual_ytd:
+    source_column: "Unnamed: 15"
+    type: money
+    sign: debit
+
+  budget_ytd:
+    source_column: "Unnamed: 16"
+    type: money
+    sign: debit
+
+  variance_ytd:
+    source_column: "Unnamed: 17"
+    type: money
+    derived: true
+
+  variance_ytd_pct:
+    source_column: "Unnamed: 18"
+    type: percentage
+    derived: true
+
+rules:
+  exclude_rows:
+    - budget_article: "Grand Total"
+
+  account_mapping:
+    Audit Cost: 6101
+    Household Materials: 6102
+    Representative Expenses: 6103
+    Fuel: 6104
+    Service: 6105
+    Property Insurance Cost: 6106
+    Stationary Goods: 6107
+    Other Operating Expenses: 6199
+
+validation:
+  - actual_month >= 0
+  - budget_month >= 0
+  - variance_month == actual_month - budget_month
