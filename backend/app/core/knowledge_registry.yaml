@@ -1,0 +1,185 @@
+engine:
+  name: finance_deterministic_engine
+  version: 1.0.0
+  philosophy: deterministic
+  guarantees:
+    - same_input_same_output
+    - no_hallucination
+    - full_traceability
+
+data_dictionary:
+  entity_id:
+    type: STRING
+    required: true
+
+  period:
+    type: DATE
+    granularity: monthly
+    required: true
+
+  amount_gel:
+    type: NUMERIC
+    description: Gross transaction amount in GEL
+    nullable: false
+
+  vat:
+    type: NUMERIC
+    description: VAT portion of gross amount
+    nullable: true
+    default: 0
+
+  net_revenue:
+    type: NUMERIC
+    derived: true
+    formula: amount_gel - vat
+
+  cost_amount:
+    type: NUMERIC
+    description: Cost of goods sold
+
+dimensions:
+  revenue_type:
+    allowed_values:
+      - Revenue Wholesale
+      - Revenue Retail
+      - Other Revenue
+    required: true
+
+  cogs_type:
+    allowed_values:
+      - COGS Wholesale
+      - COGS Retail
+    required: true
+
+metrics:
+  revenue_wholesale:
+    category: revenue
+    sign: positive
+    description: Net revenue from wholesale sales
+
+  revenue_retail:
+    category: revenue
+    sign: positive
+
+  other_revenue:
+    category: revenue
+    sign: positive
+
+  total_revenue:
+    category: revenue
+    aggregation: sum_children
+
+  total_cogs:
+    category: cost
+    sign: negative
+
+  gross_profit:
+    category: profit
+    formula: total_revenue - total_cogs
+
+atomic_rules:
+  net_revenue:
+    level: transaction
+    formula: amount_gel - vat
+
+aggregation_rules:
+  revenue_wholesale:
+    source_table: revenue_breakdown
+    measure: net_revenue
+    filter:
+      revenue_type: Revenue Wholesale
+
+  revenue_retail:
+    source_table: revenue_breakdown
+    measure: net_revenue
+    filter:
+      revenue_type: Revenue Retail
+
+  other_revenue:
+    source_table: revenue_breakdown
+    measure: net_revenue
+    filter:
+      revenue_type: Other Revenue
+
+  total_revenue:
+    children:
+      - revenue_wholesale
+      - revenue_retail
+      - other_revenue
+
+  total_cogs:
+    source_table: cogs_breakdown
+    measure: cost_amount
+
+variance_rules:
+  absolute:
+    formula: actual - baseline
+
+  percentage:
+    formula: (actual - baseline) / baseline
+
+variance_evaluation:
+  revenue:
+    favorable: actual >= baseline
+  cost:
+    favorable: actual <= baseline
+  profit:
+    favorable: actual >= baseline
+
+forecast_rules:
+  past_periods:
+    source: actual
+  future_periods:
+    source: forecast
+  overwrite_actuals: false
+
+forecast_versioning:
+  format: RF_YYYY_MM
+  active_rule: latest
+
+query_constraints:
+  require_entity: true
+  require_period: true
+  read_only: true
+
+semantic_mapping:
+  sales: total_revenue
+  profit: gross_profit
+  cost: total_cogs
+
+validations:
+  net_revenue:
+    must_equal: amount_gel - vat
+
+  total_revenue:
+    must_equal: sum(children)
+
+  period_consistency:
+    rule: no_cross_period_aggregation
+
+hypothesis_knowledge:
+  profit_decline:
+    candidates:
+      - revenue_decrease
+      - cogs_increase
+      - margin_mix_shift
+  revenue_shortfall:
+    metrics:
+      - revenue_wholesale
+      - revenue_retail
+  cost_overrun:
+    metrics:
+      - cogs_wholesale
+      - cogs_retail
+
+reasoning_heuristics:
+  test_largest_variance_first: true
+  stop_when_explained_pct: 0.8
+  max_depth: 3
+
+confidence_logic:
+  rule: explained_variance / total_variance
+  thresholds:
+    high: 0.8
+    medium: 0.5
+    low: 0.2

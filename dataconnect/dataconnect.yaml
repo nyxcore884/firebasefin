@@ -1,7 +1,0 @@
-specVersion: 'v1'
-serviceId: 'financewise'
-location: 'us-east4'
-schema:
-  source: "./schema"
-connector:
-  source: "./connector"

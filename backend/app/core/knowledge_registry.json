@@ -1,0 +1,125 @@
+{
+    "version": "1.0.0",
+    "data_knowledge": {
+        "columns": {
+            "amount_gel": {
+                "description": "Gross transaction amount in GEL",
+                "type": "NUMERIC",
+                "nullable": false,
+                "source": "accounting"
+            },
+            "vat": {
+                "description": "VAT portion of gross amount",
+                "type": "NUMERIC",
+                "nullable": true,
+                "default": 0
+            },
+            "net_revenue": {
+                "description": "Revenue excluding VAT",
+                "derived": true
+            },
+            "period": {
+                "description": "The fiscal period (month/year)",
+                "type": "DATE",
+                "mandatory": true
+            },
+            "product": {
+                "description": "Product or item name",
+                "type": "STRING",
+                "mandatory": true
+            }
+        },
+        "classification": {
+            "revenue_type": {
+                "allowed_values": [
+                    "Revenue Wholesale",
+                    "Revenue Retail",
+                    "Other Revenue"
+                ],
+                "mandatory": true
+            }
+        }
+    },
+    "metric_knowledge": {
+        "metrics": {
+            "revenue_wholesale": {
+                "category": "Revenue",
+                "sign": "positive",
+                "description": "Net revenue from wholesale activities"
+            },
+            "revenue_retail": {
+                "category": "Revenue",
+                "sign": "positive",
+                "description": "Net revenue from retail activities"
+            },
+            "total_cogs": {
+                "category": "Cost",
+                "sign": "negative",
+                "description": "Cost of goods sold"
+            },
+            "gross_profit": {
+                "category": "Profit",
+                "sign": "positive",
+                "description": "Revenue - COGS"
+            }
+        }
+    },
+    "calculation_knowledge": {
+        "atomic_rules": {
+            "Net_Revenue": {
+                "formula": "amount_gel - vat",
+                "level": "transaction"
+            }
+        },
+        "aggregation_rules": {
+            "Revenue_Wholesale": {
+                "formula": "SUM(Net_Revenue)",
+                "filter": {
+                    "revenue_type": "Revenue Wholesale"
+                }
+            },
+            "Total_Revenue": {
+                "formula": "Revenue_Wholesale + Revenue_Retail + Other_Revenue"
+            }
+        },
+        "time_rules": {
+            "period_rule": {
+                "type": "monthly",
+                "cutoff": "month_end"
+            }
+        }
+    },
+    "comparison_knowledge": {
+        "variance": {
+            "absolute": "actual - baseline",
+            "percentage": "(actual - baseline) / baseline"
+        },
+        "variance_evaluation": {
+            "revenue": {
+                "favorable": "actual >= baseline"
+            },
+            "cost": {
+                "favorable": "actual <= baseline"
+            },
+            "profit": {
+                "favorable": "actual >= baseline"
+            }
+        }
+    },
+    "explanation_knowledge": {
+        "trees": {
+            "gross_profit_change": {
+                "check_order": [
+                    "revenue_change",
+                    "cogs_change"
+                ],
+                "explanation_templates": {
+                    "revenue_down": "Revenue decreased by {x}",
+                    "revenue_up": "Revenue increased by {x}",
+                    "cogs_up": "COGS increased by {y}",
+                    "cogs_down": "COGS decreased by {y}"
+                }
+            }
+        }
+    }
+}

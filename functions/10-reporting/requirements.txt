@@ -1,9 +1,0 @@
-functions-framework==3.*
-flask==3.*
-pandas
-openpyxl
-reportlab
-Flask-Caching
-
-firebase-functions
-firebase-admin

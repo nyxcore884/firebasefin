@@ -1,0 +1,112 @@
+{
+    "hosting": {
+        "public": "dist",
+        "ignore": [
+            "firebase.json",
+            "**/.*",
+            "**/node_modules/**"
+        ],
+        "rewrites": [
+            {
+                "source": "**",
+                "destination": "/index.html"
+            }
+        ]
+    },
+    "functions": [
+        {
+            "source": "functions/2-transformation",
+            "codebase": "transformation"
+        },
+        {
+            "source": "functions/3-analysis",
+            "codebase": "analysis",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/4-doc-analysis",
+            "codebase": "doc-analysis",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/5-financial-engine",
+            "codebase": "financial-engine",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/6-accounting-engine",
+            "codebase": "accounting-engine",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/6-prognosis-engine",
+            "codebase": "prognosis-engine",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/7-dataset-registry",
+            "codebase": "dataset-registry",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/7-mapping-ingestion",
+            "codebase": "mapping-ingestion",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/8-data-ingestion",
+            "codebase": "data-ingestion",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/9-ai-query",
+            "codebase": "ai-query",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/10-localization-engine",
+            "codebase": "localization-engine",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/10-reporting",
+            "codebase": "reporting",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/11-governance",
+            "codebase": "governance",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/11-knowledge-engine",
+            "codebase": "knowledge-engine",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/12-anomaly-engine",
+            "codebase": "anomaly-engine",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/12-dashboard-actions",
+            "codebase": "dashboard-actions",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/13-metric-materializer",
+            "codebase": "metric-materializer",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/14-board-reporting",
+            "codebase": "board-reporting",
+            "runtime": "python311"
+        },
+        {
+            "source": "functions/15-truth-engine",
+            "codebase": "truth-engine",
+            "runtime": "python311"
+        }
+    ]
+}

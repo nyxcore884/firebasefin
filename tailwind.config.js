@@ -1,12 +1,14 @@
+import tailwindAnimate from "tailwindcss-animate";
+
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
   darkMode: ["class"],
   content: [
     './pages/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
-	],
+  ],
   prefix: "",
   theme: {
     container: {
@@ -52,10 +54,14 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+      fontFamily: {
+        sans: ["Inter", "sans-serif"],
+        display: ["Playfair Display", "Inter", "serif"],
+      },
       borderRadius: {
         lg: "var(--radius)",
-        md: `calc(var(--radius) - 2px)`,
-        sm: `calc(var(--radius) - 4px)`,
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
         "accordion-down": {
@@ -69,17 +75,33 @@ module.exports = {
         "pulse-slow": {
           "50%": { opacity: 0.5 },
         },
-        "pulse-slower": {
-          "50%": { opacity: 0.3 },
+        "pulse-glow": {
+          "0%, 100%": { opacity: 1, boxShadow: "0 0 10px rgba(0, 212, 255, 0.4), inset 0 0 5px rgba(0, 212, 255, 0.2)" },
+          "50%": { opacity: 0.8, boxShadow: "0 0 25px rgba(0, 212, 255, 0.7), inset 0 0 15px rgba(0, 212, 255, 0.4)" },
         },
+        "border-pulse": {
+          "0%, 100%": { borderColor: "rgba(255, 255, 255, 0.1)" },
+          "50%": { borderColor: "rgba(0, 212, 255, 0.5)" },
+        },
+        "inner-glow": {
+          "0%, 100%": { boxShadow: "inset 0 0 10px rgba(124, 58, 237, 0.2)" },
+          "50%": { boxShadow: "inset 0 0 25px rgba(124, 58, 237, 0.4)" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-10px)" },
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "pulse-slow": "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        "pulse-slower": "pulse 6s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "pulse-glow": "pulse-glow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "border-pulse": "border-pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "inner-glow": "inner-glow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "float": "float 6s ease-in-out infinite",
       },
     },
   },
-  plugins: [import("tailwindcss-animate")],
+  plugins: [tailwindAnimate],
 }
